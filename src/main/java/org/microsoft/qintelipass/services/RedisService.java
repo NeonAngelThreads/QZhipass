@@ -6,10 +6,11 @@ import org.springframework.stereotype.Service;
 
 @Service
 public class RedisService {
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
 
-    public void setValue(String key, Object value) {
+    @Autowired
+    private RedisTemplate<String, String> redisTemplate;
+
+    public void setValue(String key, String value) {
         redisTemplate.opsForValue().set(key, value);
     }
 

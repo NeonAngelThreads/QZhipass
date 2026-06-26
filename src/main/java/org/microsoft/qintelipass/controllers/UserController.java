@@ -15,9 +15,5 @@ import java.util.List;
 public class UserController {
     @Autowired
     private RedisService redisService;
-    @GetMapping(value="/user")
-    public String getUser(){
-        redisService.setValue("e", List.of("dkjis","asjdswq"));
-        return redisService.getValue("e").toString();
-    }
+
 }
