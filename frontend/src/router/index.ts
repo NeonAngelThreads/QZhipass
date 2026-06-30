@@ -2,6 +2,8 @@ import { createRouter, createWebHistory } from 'vue-router'
 import { isLoggedIn } from '../api/session'
 import LoginView from '../views/LoginView.vue'
 import HomeView from '../views/HomeView.vue'
+import ChatView from '../views/ChatView.vue'
+import SensitiveWordsView from '../views/SensitiveWordsView.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -25,7 +27,16 @@ const router = createRouter({
     },
     {
       path: '/chat',
-      redirect: '/home',
+      name: 'chat',
+      component: ChatView,
+      meta: {
+        requiresAuth: true
+      }
+    },
+    {
+      path: '/admin/sensitive-words',
+      name: 'sensitive-words',
+      component: SensitiveWordsView,
       meta: {
         requiresAuth: true
       }
