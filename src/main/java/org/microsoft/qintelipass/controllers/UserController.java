@@ -3,10 +3,6 @@ package org.microsoft.qintelipass.controllers;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.services.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageImpl;
-import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -16,7 +12,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 @RestController
-@RequestMapping("/api/admin")
+@RequestMapping("/api/v1/admin")
 public class UserController {
     @Autowired
     private UserService userService;
@@ -59,8 +55,8 @@ public class UserController {
     }
 
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<?> deactivateUser(@PathVariable String userId) {
-        if (userId == null || userId.trim().isEmpty()) {
+    public ResponseEntity<?> deactivateUser(@PathVariable Long userId) {
+        if (userId == null) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid user ID"));
         }
 

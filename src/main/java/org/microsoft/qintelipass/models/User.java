@@ -1,28 +1,29 @@
 package org.microsoft.qintelipass.models;
 
+import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
+import lombok.ToString;
+import org.hibernate.annotations.CreationTimestamp;
 import org.microsoft.qintelipass.enums.UserStatus;
 
+import java.time.OffsetDateTime;
+
+@Setter
+@Getter
+@ToString
+@Entity
+@Table(name = "users")
 public class User {
-    private String id;
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "userId", updatable = false, nullable = false)
+    private Long id;
     private String phone;
     private String wechatOpenId;
     private UserStatus status;
     private String name;
-    
-    public User() {}
-    
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
-    
-    public String getPhone() { return phone; }
-    public void setPhone(String phone) { this.phone = phone; }
-    
-    public String getWechatOpenId() { return wechatOpenId; }
-    public void setWechatOpenId(String wechatOpenId) { this.wechatOpenId = wechatOpenId; }
-    
-    public UserStatus getStatus() { return status; }
-    public void setStatus(UserStatus status) { this.status = status; }
-    
-    public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    @CreationTimestamp
+    @Column(name = "joinedAt", nullable = false, updatable = false)
+    private OffsetDateTime joinedAt;
 }
