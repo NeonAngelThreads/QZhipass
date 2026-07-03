@@ -10,6 +10,12 @@ public class ResponseBody {
         this.success = success;
         this.message = message;
     }
+    public ResponseBody(boolean success, String message, Object data) {
+        this.success = success;
+        this.message = message;
+        this.data = data;
+    }
     private boolean success;
     private String message;
+    private Object data;
 }

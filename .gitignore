@@ -1,5 +1,14 @@
 HELP.md
 target/
+.local/
+.pnpm-store/
+frontend/node_modules/
+frontend/dist/
+*.tsbuildinfo
+src/main/resources/application-local.properties
+*.log
+*.mv.db
+*.trace.db
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/

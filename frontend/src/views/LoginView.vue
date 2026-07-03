@@ -39,7 +39,7 @@ const canSubmitSms = computed(
 const smsCodeButtonText = computed(() => (countdown.value > 0 ? `${countdown.value}s` : '获取验证码'))
 
 async function redirectAfterLogin() {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/home'
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/chat'
   await router.push(redirect)
 }
 
