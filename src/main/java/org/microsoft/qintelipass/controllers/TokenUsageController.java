@@ -121,7 +121,6 @@ class TokenUsageAdminController {
 
     @GetMapping("/statistics/models")
     public ResponseEntity<?> tokensForModels(){
-
-        return ResponseEntity.ok().body(stat);
+        return ResponseEntity.ok().body("");
     }
 }
