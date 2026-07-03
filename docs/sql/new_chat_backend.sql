@@ -1,5 +1,7 @@
--- QZhipass iteration 1: new chat backend tables.
--- Review before running. This script creates only the new conversation/model tables.
+-- QZhipass iteration 1: new chat backend tables for MySQL.
+-- Review before running. This script creates only conversation/model tables.
+-- conversations.user_id stores the BIGINT id from the MySQL `user`.`id` column.
+-- No DROP, TRUNCATE, or unconditional DELETE is used.
 
 CREATE TABLE IF NOT EXISTS ai_model_configs (
     id BIGINT NOT NULL AUTO_INCREMENT,
@@ -18,7 +20,7 @@ CREATE TABLE IF NOT EXISTS ai_model_configs (
 
 CREATE TABLE IF NOT EXISTS conversations (
     id BIGINT NOT NULL AUTO_INCREMENT,
-    user_id VARCHAR(64) NOT NULL,
+    user_id BIGINT NOT NULL,
     title VARCHAR(120) NOT NULL DEFAULT '新建对话',
     model_key VARCHAR(100) NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
@@ -65,7 +67,7 @@ VALUES
     ('gpt4-omni', 'GPT-4 Omni', 'OPENAI', 1, 10),
     ('gpt4-turbo', 'GPT-4 Turbo', 'OPENAI', 1, 20),
     ('claude-3.5', 'Claude 3.5 Sonnet', 'ANTHROPIC', 1, 30),
-    ('qwen3', '千问3', 'ALIBABA', 1, 40),
+    ('qwen3', 'Qwen3', 'ALIBABA', 1, 40),
     ('deepseek-v4', 'DeepSeek-V4', 'DEEPSEEK', 1, 50)
 ON DUPLICATE KEY UPDATE
     display_name = VALUES(display_name),

@@ -26,17 +26,17 @@ import java.time.LocalDateTime;
                 @Index(name = "idx_conversations_model_key", columnList = "model_key")
         }
 )
-// 对话主表实体，记录用户归属、标题、当前模型和最后活动时间。
+// 对话归属使用 MySQL 用户表 user.id 的 BIGINT 编号。
 public class Conversation {
-    public static final String DEFAULT_TITLE = "新建对话";
+    public static final String DEFAULT_TITLE = "\u65b0\u5efa\u5bf9\u8bdd";
     public static final String STATUS_ACTIVE = "ACTIVE";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "user_id", nullable = false, length = 64)
-    private String userId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(nullable = false, length = 120)
     private String title = DEFAULT_TITLE;
@@ -60,7 +60,6 @@ public class Conversation {
     private LocalDateTime lastMessageAt;
 
     @PrePersist
-    // 首次保存时补齐默认标题、状态和时间字段。
     void prePersist() {
         LocalDateTime now = LocalDateTime.now();
         createdAt = now;
@@ -75,7 +74,6 @@ public class Conversation {
     }
 
     @PreUpdate
-    // 任意更新都会刷新 updatedAt，消息保存还会额外维护 lastMessageAt。
     void preUpdate() {
         updatedAt = LocalDateTime.now();
     }

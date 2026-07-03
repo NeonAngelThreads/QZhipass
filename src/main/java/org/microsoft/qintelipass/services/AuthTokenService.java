@@ -8,7 +8,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Service
-// 管理登录 token 与 Redis Session 的映射关系。
+// Maintains accessToken -> MySQL user id mapping in Redis.
 public class AuthTokenService {
     private static final Duration TOKEN_TTL = Duration.ofHours(8);
     private static final String TOKEN_KEY_PREFIX = "auth:token:";
@@ -19,21 +19,25 @@ public class AuthTokenService {
         this.redisService = redisService;
     }
 
-    // 登录成功后生成短 token，并把 token -> userId 写入 Redis，供后续请求解析身份。
-    public String issueToken(String userId) {
+    // Stores the numeric id from the MySQL user table, not the login phone number.
+    public String issueToken(Long userId) {
         String token = UUID.randomUUID().toString().replace("-", "");
-        redisService.setValue(tokenKey(token), userId, TOKEN_TTL);
+        redisService.setValue(tokenKey(token), String.valueOf(userId), TOKEN_TTL);
         return token;
     }
 
-    // 根据 accessToken 从 Redis Session 反查 userId。
-    public Optional<String> resolveUserId(String token) {
+    // Resolves accessToken back to the current MySQL user id.
+    public Optional<Long> resolveUserId(String token) {
         if (!StringUtils.hasText(token)) {
             return Optional.empty();
         }
         Object userId = redisService.getValue(tokenKey(token.trim()));
         if (userId instanceof String text && StringUtils.hasText(text)) {
-            return Optional.of(text);
+            try {
+                return Optional.of(Long.parseLong(text.trim()));
+            } catch (NumberFormatException exception) {
+                return Optional.empty();
+            }
         }
         return Optional.empty();
     }

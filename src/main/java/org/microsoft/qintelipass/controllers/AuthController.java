@@ -1,7 +1,7 @@
 package org.microsoft.qintelipass.controllers;
 
-import lombok.extern.slf4j.Slf4j;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.ILoginStrategy;
 import org.microsoft.qintelipass.LoginStrategyFactory;
 import org.microsoft.qintelipass.request.LoginRequest;
@@ -25,7 +25,7 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("api/v1/portal")
-// 负责门户登录入口：登录成功后签发 accessToken，并立即创建一个初始对话。
+// Portal login entry. Successful login issues accessToken and creates an initial conversation.
 public class AuthController {
     private final LoginStrategyFactory factory;
     private final AuthTokenService authTokenService;
@@ -42,7 +42,6 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    // 复用原有登录策略完成认证，再把用户身份写入 Redis Session。
     public ResponseEntity<?> login(@RequestBody LoginRequest formData, HttpServletResponse servletResponse) {
         String loginType = formData.getLoginType();
         Map<String, Object> params = formData.effectiveParams();
@@ -51,10 +50,8 @@ public class AuthController {
         ResponseBody response = strategy.authenticate(params);
         log.info("Authenticator completed. success={}", response.isSuccess());
         if (response.isSuccess()) {
-            String userId = extractUserId(response, params);
-            // accessToken -> Redis Session -> userId 是后续所有对话接口的身份来源。
+            Long userId = extractUserId(response, params);
             String accessToken = authTokenService.issueToken(userId);
-            // 登录成功后自动创建初始空白对话，前端可直接使用 initialConversationId 跳转。
             ConversationResponse conversation = conversationService.createInitialConversation(userId);
             response.setData(buildLoginData(userId, accessToken, conversation));
 
@@ -70,32 +67,54 @@ public class AuthController {
         return ResponseEntity.badRequest().body(response);
     }
 
-    // 优先沿用登录策略返回的用户编号，缺省时从登录参数中提取手机号作为 userId。
-    private String extractUserId(ResponseBody response, Map<String, Object> params) {
+    // Prefer the numeric id from the MySQL user table. Phone fallback is kept only for local SMS demos.
+    private Long extractUserId(ResponseBody response, Map<String, Object> params) {
         if (response.getData() instanceof Map<?, ?> data) {
-            Object userId = data.get("user_id");
-            if (userId instanceof String text && StringUtils.hasText(text)) {
-                return text.trim();
+            Long id = readLong(data.get("id"));
+            if (id != null) {
+                return id;
             }
-            Object camelUserId = data.get("userId");
-            if (camelUserId instanceof String text && StringUtils.hasText(text)) {
-                return text.trim();
+            Long userId = readLong(data.get("user_id"));
+            if (userId != null) {
+                return userId;
+            }
+            Long camelUserId = readLong(data.get("userId"));
+            if (camelUserId != null) {
+                return camelUserId;
             }
         }
-        Object mobile = params.get("mobile");
-        if (mobile instanceof String text && StringUtils.hasText(text)) {
-            return text.trim();
+
+        Long mobile = readLong(params.get("mobile"));
+        if (mobile != null) {
+            return mobile;
         }
-        Object phone = params.get("phone_number");
-        if (phone instanceof String text && StringUtils.hasText(text)) {
-            return text.trim();
+        Long phoneNumber = readLong(params.get("phone_number"));
+        if (phoneNumber != null) {
+            return phoneNumber;
         }
-        throw new IllegalArgumentException("Login succeeded but user_id could not be resolved.");
+        Long phone = readLong(params.get("phone"));
+        if (phone != null) {
+            return phone;
+        }
+        throw new IllegalArgumentException("Login succeeded but numeric user id could not be resolved.");
     }
 
-    // 登录响应只返回前端当前需要的兼容字段和初始对话信息。
+    private Long readLong(Object value) {
+        if (value instanceof Number number) {
+            return number.longValue();
+        }
+        if (value instanceof String text && StringUtils.hasText(text)) {
+            try {
+                return Long.parseLong(text.trim());
+            } catch (NumberFormatException exception) {
+                return null;
+            }
+        }
+        return null;
+    }
+
     private Map<String, Object> buildLoginData(
-            String userId,
+            Long userId,
             String accessToken,
             ConversationResponse conversation
     ) {

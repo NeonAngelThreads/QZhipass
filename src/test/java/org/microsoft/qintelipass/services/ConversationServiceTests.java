@@ -36,6 +36,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
         "spring.jpa.hibernate.ddl-auto=create-drop"
 })
 class ConversationServiceTests {
+    private static final Long USER_ONE = 1001L;
+    private static final Long USER_TWO = 1002L;
+
     @Autowired
     private ConversationService conversationService;
 
@@ -59,15 +62,15 @@ class ConversationServiceTests {
         modelConfigRepository.save(model("gpt4-omni", "GPT-4 Omni", "OPENAI", true, 10));
         modelConfigRepository.save(model("gpt4-turbo", "GPT-4 Turbo", "OPENAI", true, 20));
         modelConfigRepository.save(model("claude-3.5", "Claude 3.5 Sonnet", "ANTHROPIC", true, 30));
-        modelConfigRepository.save(model("qwen3", "千问3", "ALIBABA", true, 40));
+        modelConfigRepository.save(model("qwen3", "Qwen3", "ALIBABA", true, 40));
         modelConfigRepository.save(model("deepseek-v4", "DeepSeek-V4", "DEEPSEEK", true, 50));
         modelConfigRepository.save(model("disabled-model", "Disabled Model", "LOCAL_DEMO", false, 60));
     }
 
     @Test
     void createsBlankConversationWithDefaultTitleAndUniqueIds() {
-        ConversationResponse first = conversationService.createConversation("user-1", null);
-        ConversationResponse second = conversationService.createConversation("user-1", null);
+        ConversationResponse first = conversationService.createConversation(USER_ONE, null);
+        ConversationResponse second = conversationService.createConversation(USER_ONE, null);
 
         assertThat(first.title()).isEqualTo(Conversation.DEFAULT_TITLE);
         assertThat(second.title()).isEqualTo(Conversation.DEFAULT_TITLE);
@@ -78,82 +81,82 @@ class ConversationServiceTests {
 
     @Test
     void listsOnlyCurrentUserConversationsInRecentOrder() throws InterruptedException {
-        ConversationResponse first = conversationService.createConversation("user-1", null);
+        ConversationResponse first = conversationService.createConversation(USER_ONE, null);
         Thread.sleep(5);
-        conversationService.createConversation("user-2", null);
+        conversationService.createConversation(USER_TWO, null);
         Thread.sleep(5);
-        ConversationResponse second = conversationService.createConversation("user-1", null);
+        ConversationResponse second = conversationService.createConversation(USER_ONE, null);
 
-        List<ConversationSummaryResponse> initialList = conversationService.listRecentConversations("user-1", 20);
+        List<ConversationSummaryResponse> initialList = conversationService.listRecentConversations(USER_ONE, 20);
         assertThat(initialList).extracting(ConversationSummaryResponse::id).containsExactly(second.id(), first.id());
 
         Thread.sleep(5);
-        conversationService.saveMessage("user-1", first.id(), message("USER", "update older conversation", null));
+        conversationService.saveMessage(USER_ONE, first.id(), message("USER", "update older conversation", null));
 
-        List<ConversationSummaryResponse> updatedList = conversationService.listRecentConversations("user-1", 20);
+        List<ConversationSummaryResponse> updatedList = conversationService.listRecentConversations(USER_ONE, 20);
         assertThat(updatedList).extracting(ConversationSummaryResponse::id).containsExactly(first.id(), second.id());
         assertThat(updatedList).extracting(ConversationSummaryResponse::messageCount).containsExactly(1L, 0L);
     }
 
     @Test
     void rejectsAccessToAnotherUsersConversation() {
-        ConversationResponse conversation = conversationService.createConversation("user-1", null);
+        ConversationResponse conversation = conversationService.createConversation(USER_ONE, null);
 
         assertThrows(
                 ForbiddenException.class,
-                () -> conversationService.getConversation("user-2", conversation.id())
+                () -> conversationService.getConversation(USER_TWO, conversation.id())
         );
         assertThrows(
                 ForbiddenException.class,
-                () -> conversationService.updateModel("user-2", conversation.id(), updateModel("gpt4-omni"))
+                () -> conversationService.updateModel(USER_TWO, conversation.id(), updateModel("gpt4-omni"))
         );
     }
 
     @Test
     void savesUserAndAssistantMessagesAndGeneratesTitleOnce() {
-        ConversationResponse conversation = conversationService.createConversation("user-1", create("gpt4-omni"));
+        ConversationResponse conversation = conversationService.createConversation(USER_ONE, create("gpt4-omni"));
 
         ConversationMessageResponse userMessage = conversationService.saveMessage(
-                "user-1",
+                USER_ONE,
                 conversation.id(),
-                message("USER", "  帮我分析年度预算\n和现金流  ", null)
+                message("USER", "  analyze annual budget\nand cash flow  ", null)
         );
         ConversationMessageResponse assistantMessage = conversationService.saveMessage(
-                "user-1",
+                USER_ONE,
                 conversation.id(),
-                message("ASSISTANT", "可以，下面是预算分析。", null)
+                message("ASSISTANT", "Sure, here is the budget analysis.", null)
         );
 
-        ConversationDetailResponse detail = conversationService.getConversation("user-1", conversation.id());
+        ConversationDetailResponse detail = conversationService.getConversation(USER_ONE, conversation.id());
         assertThat(userMessage.role()).isEqualTo("USER");
         assertThat(assistantMessage.role()).isEqualTo("ASSISTANT");
-        assertThat(detail.conversation().title()).isEqualTo("帮我分析年度预算 和现金流");
+        assertThat(detail.conversation().title()).isEqualTo("analyze annual budget and cash flow");
         assertThat(detail.messages()).extracting(ConversationMessageResponse::role).containsExactly("USER", "ASSISTANT");
         assertThat(detail.model()).isEqualTo(new ModelResponse("gpt4-omni", "GPT-4 Omni", "OPENAI"));
 
-        conversationService.saveMessage("user-1", conversation.id(), message("ASSISTANT", "第二次回复", null));
-        ConversationDetailResponse afterSecondAssistant = conversationService.getConversation("user-1", conversation.id());
-        assertThat(afterSecondAssistant.conversation().title()).isEqualTo("帮我分析年度预算 和现金流");
+        conversationService.saveMessage(USER_ONE, conversation.id(), message("ASSISTANT", "Second answer.", null));
+        ConversationDetailResponse afterSecondAssistant = conversationService.getConversation(USER_ONE, conversation.id());
+        assertThat(afterSecondAssistant.conversation().title()).isEqualTo("analyze annual budget and cash flow");
     }
 
     @Test
     void doesNotOverwriteCustomizedTitleAfterFirstAssistantMessage() {
-        ConversationResponse conversation = conversationService.createConversation("user-1", null);
-        conversationService.saveMessage("user-1", conversation.id(), message("USER", "默认标题不应该覆盖", null));
-        conversationService.updateTitle("user-1", conversation.id(), updateTitle("人工标题"));
+        ConversationResponse conversation = conversationService.createConversation(USER_ONE, null);
+        conversationService.saveMessage(USER_ONE, conversation.id(), message("USER", "default title should stay", null));
+        conversationService.updateTitle(USER_ONE, conversation.id(), updateTitle("Manual title"));
 
-        conversationService.saveMessage("user-1", conversation.id(), message("ASSISTANT", "首次 AI 回复", null));
+        conversationService.saveMessage(USER_ONE, conversation.id(), message("ASSISTANT", "First AI answer", null));
 
-        ConversationDetailResponse detail = conversationService.getConversation("user-1", conversation.id());
-        assertThat(detail.conversation().title()).isEqualTo("人工标题");
+        ConversationDetailResponse detail = conversationService.getConversation(USER_ONE, conversation.id());
+        assertThat(detail.conversation().title()).isEqualTo("Manual title");
     }
 
     @Test
     void updatesConversationModelWhenModelIsAvailable() {
-        ConversationResponse conversation = conversationService.createConversation("user-1", null);
+        ConversationResponse conversation = conversationService.createConversation(USER_ONE, null);
 
         ConversationResponse updated = conversationService.updateModel(
-                "user-1",
+                USER_ONE,
                 conversation.id(),
                 updateModel("qwen3")
         );
@@ -165,38 +168,38 @@ class ConversationServiceTests {
     void rejectsInvalidInputs() {
         assertThrows(
                 BadRequestException.class,
-                () -> conversationService.createConversation("user-1", create("missing-model"))
+                () -> conversationService.createConversation(USER_ONE, create("missing-model"))
         );
 
-        ConversationResponse conversation = conversationService.createConversation("user-1", null);
+        ConversationResponse conversation = conversationService.createConversation(USER_ONE, null);
 
         assertThrows(
                 BadRequestException.class,
-                () -> conversationService.createConversation("user-1", create("disabled-model"))
+                () -> conversationService.createConversation(USER_ONE, create("disabled-model"))
         );
         assertThrows(
                 BadRequestException.class,
-                () -> conversationService.saveMessage("user-1", conversation.id(), message("USER", " ", null))
+                () -> conversationService.saveMessage(USER_ONE, conversation.id(), message("USER", " ", null))
         );
         assertThrows(
                 BadRequestException.class,
-                () -> conversationService.saveMessage("user-1", conversation.id(), message("UNKNOWN", "content", null))
+                () -> conversationService.saveMessage(USER_ONE, conversation.id(), message("UNKNOWN", "content", null))
         );
         assertThrows(
                 NotFoundException.class,
-                () -> conversationService.getConversation("user-1", 999999L)
+                () -> conversationService.getConversation(USER_ONE, 999999L)
         );
     }
 
     @Test
     void returnsOnlyEnabledModels() {
-        List<ModelResponse> models = aiModelService.listAvailableModels("user-1");
+        List<ModelResponse> models = aiModelService.listAvailableModels(USER_ONE);
 
         assertThat(models).containsExactly(
                 new ModelResponse("gpt4-omni", "GPT-4 Omni", "OPENAI"),
                 new ModelResponse("gpt4-turbo", "GPT-4 Turbo", "OPENAI"),
                 new ModelResponse("claude-3.5", "Claude 3.5 Sonnet", "ANTHROPIC"),
-                new ModelResponse("qwen3", "千问3", "ALIBABA"),
+                new ModelResponse("qwen3", "Qwen3", "ALIBABA"),
                 new ModelResponse("deepseek-v4", "DeepSeek-V4", "DEEPSEEK")
         );
     }

@@ -13,7 +13,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("api/v1/models")
-// 模型接口入口：先确认当前登录用户，再返回可用模型列表。
+// Returns enabled model configs for the current authenticated MySQL user id.
 public class ModelController {
     private final AiModelService aiModelService;
     private final CurrentUserService currentUserService;
@@ -24,9 +24,8 @@ public class ModelController {
     }
 
     @GetMapping("/available")
-    // 前端输入模型选择时调用该接口，只暴露 enabled=true 的模型配置。
     public ApiResponse<List<ModelResponse>> listAvailableModels(HttpServletRequest request) {
-        String userId = currentUserService.requireUserId(request);
+        Long userId = currentUserService.requireUserId(request);
         return ApiResponse.ok(aiModelService.listAvailableModels(userId));
     }
 }

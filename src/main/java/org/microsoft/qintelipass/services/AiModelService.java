@@ -21,7 +21,7 @@ public class AiModelService {
 
     @Transactional(readOnly = true)
     // 返回当前可用模型；预留 userId 便于后续接入按用户授权的模型范围。
-    public List<ModelResponse> listAvailableModels(String userId) {
+    public List<ModelResponse> listAvailableModels(Long userId) {
         return modelConfigRepository.findByEnabledTrueOrderBySortOrderAscDisplayNameAsc()
                 .stream()
                 .map(ModelResponse::from)

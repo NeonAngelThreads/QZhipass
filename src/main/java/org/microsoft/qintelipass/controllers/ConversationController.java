@@ -27,7 +27,7 @@ import java.util.List;
 
 @RestController
 @RequestMapping("api/v1/conversations")
-// 对话接口入口：Controller 只解析当前用户和请求体，具体持久化与权限校验交给 Service。
+// Controller only resolves the current user and request body; ownership is enforced in the service.
 public class ConversationController {
     private final ConversationService conversationService;
     private final CurrentUserService currentUserService;
@@ -38,12 +38,11 @@ public class ConversationController {
     }
 
     @PostMapping
-    // 手动创建新的空白对话，并返回前端跳转所需的 conversationId。
     public ResponseEntity<ApiResponse<ConversationResponse>> createConversation(
             @RequestBody(required = false) CreateConversationRequest request,
             HttpServletRequest httpRequest
     ) {
-        String userId = currentUserService.requireUserId(httpRequest);
+        Long userId = currentUserService.requireUserId(httpRequest);
         ConversationResponse response = conversationService.createConversation(userId, request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -51,9 +50,8 @@ public class ConversationController {
     }
 
     @PostMapping("/initial")
-    // 登录后也可显式补建初始对话，身份仍来自 accessToken。
     public ResponseEntity<ApiResponse<ConversationResponse>> createInitialConversation(HttpServletRequest request) {
-        String userId = currentUserService.requireUserId(request);
+        Long userId = currentUserService.requireUserId(request);
         ConversationResponse response = conversationService.createInitialConversation(userId);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -61,33 +59,30 @@ public class ConversationController {
     }
 
     @GetMapping
-    // 查询当前用户自己的最近对话列表，列表范围由 Service 按 userId 限定。
     public ApiResponse<List<ConversationSummaryResponse>> listRecentConversations(
             @RequestParam(required = false) Integer limit,
             HttpServletRequest request
     ) {
-        String userId = currentUserService.requireUserId(request);
+        Long userId = currentUserService.requireUserId(request);
         return ApiResponse.ok(conversationService.listRecentConversations(userId, limit));
     }
 
     @GetMapping("/{conversationId}")
-    // 读取单个对话详情时，Service 会校验 conversationId 是否属于当前用户。
     public ApiResponse<ConversationDetailResponse> getConversation(
             @PathVariable Long conversationId,
             HttpServletRequest request
     ) {
-        String userId = currentUserService.requireUserId(request);
+        Long userId = currentUserService.requireUserId(request);
         return ApiResponse.ok(conversationService.getConversation(userId, conversationId));
     }
 
     @PostMapping("/{conversationId}/messages")
-    // 保存 USER、ASSISTANT 或 SYSTEM 消息，并同步更新对话活动时间。
     public ResponseEntity<ApiResponse<ConversationMessageResponse>> saveMessage(
             @PathVariable Long conversationId,
             @RequestBody SaveConversationMessageRequest request,
             HttpServletRequest httpRequest
     ) {
-        String userId = currentUserService.requireUserId(httpRequest);
+        Long userId = currentUserService.requireUserId(httpRequest);
         ConversationMessageResponse response = conversationService.saveMessage(userId, conversationId, request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -95,24 +90,22 @@ public class ConversationController {
     }
 
     @PatchMapping("/{conversationId}/model")
-    // 切换对话模型前先解析当前用户，模型可用性与归属校验在 Service 中完成。
     public ApiResponse<ConversationResponse> updateModel(
             @PathVariable Long conversationId,
             @RequestBody UpdateConversationModelRequest request,
             HttpServletRequest httpRequest
     ) {
-        String userId = currentUserService.requireUserId(httpRequest);
+        Long userId = currentUserService.requireUserId(httpRequest);
         return ApiResponse.ok(conversationService.updateModel(userId, conversationId, request));
     }
 
     @PatchMapping("/{conversationId}/title")
-    // 用户手动改标题后会标记为自定义，避免后续自动标题覆盖。
     public ApiResponse<ConversationResponse> updateTitle(
             @PathVariable Long conversationId,
             @RequestBody UpdateConversationTitleRequest request,
             HttpServletRequest httpRequest
     ) {
-        String userId = currentUserService.requireUserId(httpRequest);
+        Long userId = currentUserService.requireUserId(httpRequest);
         return ApiResponse.ok(conversationService.updateTitle(userId, conversationId, request));
     }
 }

@@ -28,6 +28,13 @@ function readString(value: unknown) {
   return typeof value === 'string' && value.trim() ? value.trim() : ''
 }
 
+function readIdentifier(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  return readString(value)
+}
+
 function readNumber(value: unknown) {
   if (typeof value === 'number' && Number.isFinite(value)) {
     return value
@@ -50,10 +57,10 @@ function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): Logi
       ? payload.conversation as Record<string, unknown>
       : {}
   const userId =
-    readString(payload.user_id) ||
-    readString(payload.userId) ||
-    readString(response.user_id) ||
-    readString(response.userId)
+    readIdentifier(payload.user_id) ||
+    readIdentifier(payload.userId) ||
+    readIdentifier(response.user_id) ||
+    readIdentifier(response.userId)
   const accessToken =
     readString(payload.access_token) ||
     readString(payload.accessToken) ||

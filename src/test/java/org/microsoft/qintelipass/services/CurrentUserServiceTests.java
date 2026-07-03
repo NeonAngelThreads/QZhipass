@@ -36,9 +36,9 @@ class CurrentUserServiceTests {
     void resolvesBearerTokenToCurrentUser() {
         CurrentUserService service = new CurrentUserService(authTokenService);
         when(request.getHeader("Authorization")).thenReturn("Bearer token-1");
-        when(authTokenService.resolveUserId("token-1")).thenReturn(Optional.of("user-1"));
+        when(authTokenService.resolveUserId("token-1")).thenReturn(Optional.of(1001L));
 
-        assertEquals("user-1", service.requireUserId(request));
+        assertEquals(1001L, service.requireUserId(request));
     }
 
     @Test
@@ -47,9 +47,9 @@ class CurrentUserServiceTests {
         when(request.getHeader("Authorization")).thenReturn(null);
         when(request.getHeader("X-Access-Token")).thenReturn(null);
         when(request.getCookies()).thenReturn(new Cookie[]{new Cookie("access_token", "token-2")});
-        when(authTokenService.resolveUserId("token-2")).thenReturn(Optional.of("user-2"));
+        when(authTokenService.resolveUserId("token-2")).thenReturn(Optional.of(1002L));
 
-        assertEquals("user-2", service.requireUserId(request));
+        assertEquals(1002L, service.requireUserId(request));
     }
 
     @Test

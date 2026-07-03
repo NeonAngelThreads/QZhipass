@@ -9,7 +9,7 @@ import org.springframework.util.StringUtils;
 import java.util.Optional;
 
 @Service
-// 从请求头或 Cookie 中读取 accessToken，再通过 Redis Session 获取当前用户编号。
+// Reads accessToken from headers or cookie, then resolves the current MySQL user id from Redis.
 public class CurrentUserService {
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
 
@@ -19,15 +19,15 @@ public class CurrentUserService {
         this.authTokenService = authTokenService;
     }
 
-    // 对外统一提供当前 userId；缺少或过期 token 都按未登录处理。
-    public String requireUserId(HttpServletRequest request) {
+    // All conversation APIs use this numeric id as their trusted current user identity.
+    public Long requireUserId(HttpServletRequest request) {
         String token = resolveToken(request)
                 .orElseThrow(() -> new UnauthorizedException("Missing access token."));
         return authTokenService.resolveUserId(token)
                 .orElseThrow(() -> new UnauthorizedException("Invalid or expired access token."));
     }
 
-    // 支持 Authorization Bearer、X-Access-Token 和同源 Cookie 三种携带方式。
+    // Supports Authorization Bearer, X-Access-Token, and same-site access_token cookie.
     private Optional<String> resolveToken(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
         if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
