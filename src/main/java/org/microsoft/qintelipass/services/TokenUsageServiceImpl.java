@@ -9,6 +9,7 @@ import org.microsoft.qintelipass.repository.ModelsRepository;
 import org.microsoft.qintelipass.repository.TokenDailySummaryRepository;
 import org.microsoft.qintelipass.repository.TokenUsageLogRepository;
 import org.microsoft.qintelipass.util.ExpirationTimeHelper;
+import org.microsoft.qintelipass.util.Snowflake;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
@@ -16,6 +17,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -79,8 +81,10 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         TokenUsageLog logEntry = TokenUsageLog.builder()
                 .userId(userId)
                 .modelId(modelId != null ? modelId : 1L)
+                .id(Snowflake.nextId())
                 .tokensUsed(tokensUsed)
                 .usageDate(LocalDate.now())
+                .createdAt(OffsetDateTime.now())
                 .build();
         tokenUsageLogRepository.save(logEntry);
 
@@ -199,7 +203,9 @@ public class TokenUsageServiceImpl implements TokenUsageService {
 
     @Override
     public String getTodayTotalTokens() {
-        return this.redisTemplate.opsForValue().get(TOTAL_TOKENS_KEY);
+        return Optional
+                .ofNullable(this.redisTemplate.opsForValue().get(TOTAL_TOKENS_KEY))
+                .orElse("0");
     }
 
     @Override

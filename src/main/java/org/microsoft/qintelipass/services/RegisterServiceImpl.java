@@ -28,6 +28,7 @@ public class RegisterServiceImpl implements IRegisterable {
                 .email(request.getEmail())
                 .name(request.getName())
                 .phone(request.getPhone())
+                .department(request.getDepartment())
                 .passwordHash(hashedPassword)
                 .build();
         try {

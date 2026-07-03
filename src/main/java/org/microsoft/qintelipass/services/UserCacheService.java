@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.UserDTO;
+import org.microsoft.qintelipass.models.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -40,7 +41,7 @@ public class UserCacheService {
         }
     }
 
-    public UserDTO getCachedUserById(Long userId) {
+    public User getCachedUserById(Long userId) {
         if (userId == null) {
             return null;
         }
@@ -50,7 +51,7 @@ public class UserCacheService {
             return null;
         }
         try {
-            return objectMapper.readValue(userJson, UserDTO.class);
+            return objectMapper.readValue(userJson, User.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize cached user: {}", userId, e);
             deleteCachedUser(userId);
@@ -58,7 +59,7 @@ public class UserCacheService {
         }
     }
 
-    public UserDTO getCachedUserByPhone(String phone) {
+    public User getCachedUserByPhone(String phone) {
         if (phone == null || phone.trim().isEmpty()) {
             return null;
         }
@@ -80,7 +81,7 @@ public class UserCacheService {
         if (userId == null) {
             return;
         }
-        UserDTO cachedUser = getCachedUserById(userId);
+        User cachedUser = getCachedUserById(userId);
         if (cachedUser != null && cachedUser.getPhone() != null) {
             redisTemplate.delete(PHONE_INDEX_PREFIX + cachedUser.getPhone());
         }

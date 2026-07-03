@@ -105,6 +105,7 @@ class TokenUsageAdminController {
 
     @GetMapping("/statistics/total/consumption")
     public ResponseEntity<?> tokenStat(){
+        SecurityUtil.requireAuthentication();
         Map<String, Object> stat = Map.of(
                 "tokens", tokenUsageService.getTodayTotalTokens()
         );
@@ -112,6 +113,7 @@ class TokenUsageAdminController {
     }
     @GetMapping("/statistics/overuse/users")
     public ResponseEntity<?> overuseUsers(){
+        SecurityUtil.requireAuthentication();
         Map<String, Object> stat = Map.of(
                 "count", tokenUsageService.getOveruseUsers(),
                 "percent", 0.1

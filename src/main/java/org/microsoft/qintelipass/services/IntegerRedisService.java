@@ -1,6 +1,7 @@
 package org.microsoft.qintelipass.services;
 
 import lombok.Getter;
+import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -14,8 +15,9 @@ public class IntegerRedisService implements IRedisService<Integer>{
         redisTemplate.opsForValue().set(key, value);
     }
     @Override
-    public Integer getValue(String key) {
-        return redisTemplate.opsForValue().get(key);
+    public @NonNull Integer getValue(String key) {
+        Integer s = redisTemplate.opsForValue().get(key);
+        return s == null ? 0 : s;
     }
     @Override
     public void deleteValue(String key) {

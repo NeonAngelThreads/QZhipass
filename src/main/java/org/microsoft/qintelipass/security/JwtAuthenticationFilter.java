@@ -47,7 +47,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     Long userId = null;
                     try {
                         userId = jwtUtil.extractUserId(jwt);
-                        trafficStatService.recordTraffic(userId);
                     } catch (Exception e) {
                         log.warn("Could not extract user ID from token, will try to find by username");
                     }
@@ -64,6 +63,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     }
 
                     if (user != null) {
+//                        trafficStatService.recordTraffic(user.getId());
                         AuthenticatedUser authenticatedUser = AuthenticatedUser.builder()
                                 .userId(user.getId())
                                 .username(user.getName())

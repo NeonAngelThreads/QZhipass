@@ -28,10 +28,10 @@ public class UserServiceImpl implements UserService {
             return null;
         }
 
-        UserDTO cachedUser = userCacheService.getCachedUserById(userId);
+        User cachedUser = userCacheService.getCachedUserById(userId);
         if (cachedUser != null) {
             log.debug("User found in cache: {}", userId);
-            return cachedUser.toUser();
+            return cachedUser;
         }
 
         log.debug("User not in cache, fetching from database: {}", userId);
@@ -50,10 +50,10 @@ public class UserServiceImpl implements UserService {
             return null;
         }
 
-        UserDTO cachedUser = userCacheService.getCachedUserByPhone(phone);
+        User cachedUser = userCacheService.getCachedUserByPhone(phone);
         if (cachedUser != null) {
             log.debug("User found in cache by phone: {}", phone);
-            return cachedUser.toUser();
+            return cachedUser;
         }
 
         log.debug("User not in cache, fetching from database by phone: {}", phone);

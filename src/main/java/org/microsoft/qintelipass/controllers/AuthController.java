@@ -7,6 +7,7 @@ import org.microsoft.qintelipass.CredentialManager;
 import org.microsoft.qintelipass.ILoginStrategy;
 import org.microsoft.qintelipass.IRegisterable;
 import org.microsoft.qintelipass.LoginStrategyFactory;
+import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.request.LoginRequest;
 import org.microsoft.qintelipass.request.RegisterRequest;
@@ -68,7 +69,12 @@ public class AuthController {
                 auth.setMaxAge(EXPIRATION);
                 httpResponse.addCookie(userIdCookie);
                 httpResponse.addCookie(auth);
-                return ResponseEntity.ok(response);
+
+                return ResponseEntity.ok(Map.of(
+                        "success", true,
+                        "data", UserDTO.fromUser(user),
+                        "token", token
+                ));
             }
             return ResponseEntity.badRequest().body(response);
         } catch (IllegalArgumentException e) {
@@ -113,17 +119,26 @@ public class AuthController {
         User registered = registerService.register(payload, payload.getPassword());
         Map<String, Object> responseBody = new HashMap<>();
 
-        UserDetails userDetails = userDetailsService.loadUserByUsername(registered.getName());
-        String token = jwtUtil.generateToken(userDetails);
-        responseBody.put("success", true);
-        responseBody.put("data", registered);
-        responseBody.put("token", token);
+        if (registered != null) {
+            UserDetails userDetails = userDetailsService.loadUserByUsername(registered.getName());
+            String token = jwtUtil.generateToken(userDetails);
+            responseBody.put("success", true);
+            responseBody.put("data", registered);
+            responseBody.put("token", token);
 
-        return ResponseEntity.created(ServletUriComponentsBuilder
-                .fromCurrentRequest()
-                .path("/{id}")
-                .buildAndExpand(registered.getId())
-                .toUri())
-        .body(responseBody);
+            return ResponseEntity.created(ServletUriComponentsBuilder
+                    .fromCurrentRequest()
+                    .path("/{id}")
+                    .buildAndExpand(registered.getId())
+                    .toUri())
+            .body(responseBody);
+        } else {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Information is not completed with integrity, cloud not register."
+            ));
+        }
     }
 }
