@@ -31,3 +31,12 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Frontend ###
+# 根目录下误生成的 package-lock.json
+/package-lock.json
+# 前端依赖和构建产物
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+frontend/.env.*
