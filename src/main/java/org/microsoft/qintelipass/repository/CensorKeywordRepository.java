@@ -8,4 +8,5 @@ import java.util.List;
 public interface CensorKeywordRepository extends JpaRepository<CensorKeyword, Long> {
 
     List<CensorKeyword> findByEnabledTrue();
+    List<CensorKeyword> findAllByOrderByCreatedAtDesc();
 }

@@ -29,6 +29,35 @@ public class CensorService {
         this.vectorCensorService = vectorCensorService;
     }
 
+    @Transactional(readOnly = true)
+    public List<CensorKeyword> listKeywords() {
+        return censorKeywordRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    @Transactional
+    public CensorKeyword addKeyword(String keyword) {
+        if (keyword == null || keyword.isBlank()) {
+            throw new IllegalArgumentException("Keyword must not be blank.");
+        }
+
+        return censorKeywordRepository.save(new CensorKeyword(keyword.trim()));
+    }
+
+    @Transactional
+    public CensorKeyword setKeywordEnabled(Long id, boolean enabled) {
+        CensorKeyword keyword = censorKeywordRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Censor keyword does not exist."));
+
+        keyword.setEnabled(enabled);
+        return censorKeywordRepository.save(keyword);
+    }
+
+    @Transactional(readOnly = true)
+    public List<CensorRecord> listRecords() {
+        return censorRecordRepository.findAllByOrderByCreatedAtDesc();
+    }
+
+    
     @Transactional
     public void checkAndRecord(Long userId,
                                String username,
