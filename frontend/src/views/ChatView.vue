@@ -1,5 +1,4 @@
 <script setup lang="ts">
-<<<<<<< HEAD
 import {type Component, computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
 import {ElMessage} from 'element-plus'
 import {useRouter} from 'vue-router'
@@ -7,58 +6,32 @@ import BrandLogo from '../components/BrandLogo.vue'
 import http, {getErrorMessage} from '../api/http'
 import {readLoginInfo, saveInitialConversationId} from '../api/session'
 import {useAuthStore} from '../stores/auth'
-
-=======
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
 import {
   Bell,
   ChatDotSquare,
-<<<<<<< HEAD
   Document,
-  Download,
   EditPen,
-=======
-  Download,
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
   Headset,
-  Histogram,
-  HomeFilled,
   Paperclip,
-<<<<<<< HEAD
   Promotion,
-=======
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
   Search,
   Setting,
-  Share,
   SwitchButton,
-  Upload,
   UserFilled,
 } from '@element-plus/icons-vue'
-<<<<<<< HEAD
-
-const router = useRouter()
-=======
 
 const router = useRouter()
 const authStore = useAuthStore()
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
 
 // ========== state ==========
 const searchQuery = ref('')
 const inputText = ref('')
 const selectedModel = ref('gpt4-omni')
 const selectedAgent = ref('data-analyst')
-<<<<<<< HEAD
-const selectedChatId = ref(1)
-const showModelDropdown = ref(false)
-const showAgentDropdown = ref(false)
-=======
 const selectedChatId = ref<number | null>(null)
 const showModelDropdown = ref(false)
 const showAgentDropdown = ref(false)
 const creatingConversation = ref(false)
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
 
 const tokenLimit = 100000
 const tokenUsed = 64000
@@ -78,15 +51,6 @@ const agents = [
   { value: 'coder', label: 'Code Assistant Agent' },
 ]
 
-<<<<<<< HEAD
-const chats = [
-  { id: 1, title: 'Q4 数据分析报告撰写', icon: Document },
-  { id: 2, title: '品牌营销文案优化', icon: Promotion },
-  { id: 3, title: '产品需求文档梳理', icon: EditPen },
-  { id: 4, title: '用户反馈情绪分析', icon: ChatDotSquare },
-  { id: 5, title: '竞品市场调研总结', icon: Search },
-]
-=======
 interface ApiResponse<T> {
   success?: boolean
   message?: string
@@ -111,7 +75,6 @@ interface CreateConversationOptions {
 }
 
 const chats = ref<ChatItem[]>([])
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
 
 interface Message {
   id: number
@@ -120,62 +83,11 @@ interface Message {
   timestamp: string
   actions?: string[]
 }
-<<<<<<< HEAD
-const messages = ref<Message[]>([
-  {
-    id: 1,
-    role: 'user',
-    content: '请帮我分析 Q4 销售数据，生成一份综合报告，包含趋势图和关键指标。',
-    timestamp: '10:28 AM',
-  },
-  {
-    id: 2,
-    role: 'ai',
-    content:
-      '好的，我已经完成了 **Q4 销售数据的分析**。以下是主要发现：\n\n1. **总销售额**：¥8,420万，同比增长 12.4%\n2. **线上渠道占比**：首次突破 45%\n3. **华东地区** 增长最快，达到 18.7%\n4. **客单价** 提升至 ¥2,840（+5.2%）\n\n建议重点关注以下数据维度进行深入分析。',
-    timestamp: '10:28 AM',
-    actions: ['生成柱状图', '导出 PPT 提纲', '查看原始数据'],
-  },
-  {
-    id: 3,
-    role: 'user',
-    content: '好的，请帮我生成趋势图和导出 PPT 提纲。另外把华东地区的细节数据给我看看。',
-    timestamp: '10:35 AM',
-  },
-  {
-    id: 4,
-    role: 'ai',
-    content:
-      '已为您生成趋势图并导出 PPT 提纲。\n\n### 📊 趋势图已生成\n- **月度销售趋势图**：显示 10-12 月逐月增长\n- **渠道分布饼图**：线上 45%、线下 55%\n- **区域对比柱状图**：华东领跑\n\n### 📄 PPT 提纲\n1. Q4 整体业绩概览\n2. 各渠道销售表现\n3. 区域市场分析\n4. 产品品类 TOP 10\n5. 2025 Q1 展望\n\n华东地区详细数据已整理如下表...',
-    timestamp: '10:35 AM',
-    actions: ['下载 PPT', '分享报告'],
-  },
-  {
-    id: 5,
-    role: 'user',
-    content: '非常好，请帮我把这个报告分享给管理层，并添加一段简短的总结。',
-    timestamp: '10:42 AM',
-  },
-  {
-    id: 6,
-    role: 'ai',
-    content:
-      '报告已准备完毕，分享链接已生成。\n\n### 📋 执行摘要\n\nQ4 业绩表现强劲，总销售额达 ¥8,420 万，同比增长 12.4%。线上渠道贡献显著提升，华东市场持续引领增长。建议 Q1 重点加大线上投入，并借鉴华东成功经验推广至其他区域。\n\n已为您生成分享链接，有效期 7 天。',
-    timestamp: '10:42 AM',
-    actions: ['复制分享链接', '预览报告'],
-  },
-])
-
-const chatContainer = ref<HTMLElement>()
-
-const currentChat = computed(() => chats.find(c => c.id === selectedChatId.value))
-=======
 const messages = ref<Message[]>([])
 
 const chatContainer = ref<HTMLElement>()
 
 const currentChat = computed(() => chats.value.find(c => c.id === selectedChatId.value))
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
 const charCount = computed(() => inputText.value.length)
 const maxChars = 2000
 
@@ -183,8 +95,6 @@ function selectChat(id: number) {
   selectedChatId.value = id
 }
 
-<<<<<<< HEAD
-=======
 function activateConversation(conversation: ConversationPayload) {
   const title = conversation.title || '新建对话'
   const existing = chats.value.find(chat => chat.id === conversation.id)
@@ -248,7 +158,6 @@ async function createNewConversation(options: CreateConversationOptions = {}) {
   }
 }
 
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
 function selectModel(val: string) {
   selectedModel.value = val
   showModelDropdown.value = false
@@ -269,10 +178,7 @@ function handleGlobalKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
-<<<<<<< HEAD
-=======
   initializeConversationFromLogin()
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
   window.addEventListener('keydown', handleGlobalKeydown)
 })
 
@@ -316,12 +222,8 @@ function scrollToBottom() {
 }
 
 function logout() {
-<<<<<<< HEAD
-  router.push('/login')
-=======
   authStore.logout()
   router.replace('/login')
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
 }
 
 watch(
@@ -363,19 +265,12 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
       <!-- New chat button -->
       <div class="px-4 pt-4">
         <button
-<<<<<<< HEAD
-          class="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
-        >
-          <el-icon :size="16"><ChatDotSquare /></el-icon>
-          + 开启新会话
-=======
           class="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="creatingConversation"
           @click="createNewConversation()"
         >
           <el-icon :size="16"><ChatDotSquare /></el-icon>
           {{ creatingConversation ? '创建中...' : '+ 开启新会话' }}
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
         </button>
       </div>
 
@@ -597,7 +492,7 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
           <div class="relative">
             <textarea
               v-model="inputText"
-              class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 pr-20 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-1 focus:ring-blue-100"
+              class="w-full resize-none rounded-xl border border-gray-200 bg-gray-50 py-3 pl-11 pr-20 text-sm text-gray-800 placeholder-gray-400 outline-none transition focus:border-blue-400 focus:bg-white focus:ring-1 focus:ring-blue-100"
               rows="3"
               placeholder="输入您的问题或指令 (Shift + Enter 换行)..."
               :maxlength="maxChars"
@@ -633,8 +528,4 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
       </div>
     </div>
   </div>
-<<<<<<< HEAD
 </template>
-=======
-</template>
->>>>>>> 8d4d8a4948b45c46435d75543f870cc3da9af7b5
