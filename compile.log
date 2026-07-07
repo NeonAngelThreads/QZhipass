@@ -1,0 +1,23 @@
+﻿[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< org.microsoft:Qintelipass >----------------------
+[INFO] Building Qintelipass 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] --- clean:3.5.0:clean (default-clean) @ Qintelipass ---
+[INFO] Deleting C:\Users\Administrator\Desktop\����ͨ\QZhipass\target
+[INFO] 
+[INFO] --- resources:3.5.0:resources (default-resources) @ Qintelipass ---
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] Copying 5 resources from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.15.0:compile (default-compile) @ Qintelipass ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 20 source files with javac [debug parameters release 21] to target\classes
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD SUCCESS
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  2.885 s
+[INFO] Finished at: 2026-07-04T09:09:59+08:00
+[INFO] ------------------------------------------------------------------------

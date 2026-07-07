@@ -3,7 +3,7 @@ import { ref, reactive, computed, watch } from 'vue'
 
 // ==================== 配置 ====================
 // 开发时指向后端地址；构建后若前后端同源可改为 ''
-const API_BASE = 'http://localhost:7510'
+const API_BASE = 'http://1.14.203.243'
 
 // ==================== 状态定义 ====================
 const showDialog = ref(true)
