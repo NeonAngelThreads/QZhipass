@@ -48,11 +48,6 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/portal/**", "/api/v1/auth/**", "/error")
-                        .permitAll()
-                        .requestMatchers("/api/v1/admin/**").authenticated()
-                        .requestMatchers("/api/v1/token/**").authenticated()
-                        .requestMatchers("/api/v1/agent/**").authenticated()
                         .anyRequest().permitAll()
                 )
                 .sessionManagement(session -> session

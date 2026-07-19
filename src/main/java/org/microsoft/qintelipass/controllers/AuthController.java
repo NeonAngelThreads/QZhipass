@@ -103,6 +103,7 @@ public class AuthController {
                         .builder()
                         .success(false)
                         .message("phone number should not be null")
+                        .build()
                 );
     }
 
@@ -153,6 +154,7 @@ public class AuthController {
     }
 }
 @Slf4j
+@RestController
 @RequestMapping("api/v2/portal")
 // Portal login entry. Successful login issues accessToken and creates an initial conversation.
 class AuthControllerV2 {
@@ -180,9 +182,10 @@ class AuthControllerV2 {
         log.info("Authenticator completed. success={}", response.isSuccess());
         if (response.isSuccess()) {
             Long userId = extractUserId(response, params);
+            String role = extractRole(response);
             String accessToken = authTokenService.issueToken(userId);
             ConversationResponse conversation = conversationService.createInitialConversation(userId);
-            response.setPayload(buildLoginData(userId, accessToken, conversation));
+            response.setPayload(buildLoginData(userId, accessToken, role, conversation));
 
             ResponseCookie accessTokenCookie = ResponseCookie.from("access_token", accessToken)
                     .httpOnly(true)
@@ -228,6 +231,16 @@ class AuthControllerV2 {
         throw new IllegalArgumentException("Login succeeded but numeric user id could not be resolved.");
     }
 
+    private String extractRole(ResponseBody response) {
+        if (response.getPayload() instanceof Map<?, ?> data) {
+            Object role = data.get("role");
+            if (role instanceof String roleStr && !roleStr.isBlank()) {
+                return roleStr;
+            }
+        }
+        return "USER";
+    }
+
     private Long readLong(Object value) {
         if (value instanceof Number number) {
             return number.longValue();
@@ -245,11 +258,13 @@ class AuthControllerV2 {
     private Map<String, Object> buildLoginData(
             Long userId,
             String accessToken,
+            String role,
             ConversationResponse conversation
     ) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("user_id", userId);
         data.put("access_token", accessToken);
+        data.put("role", role);
         data.put("initialConversationId", conversation.id());
         data.put("conversation", conversation);
         return data;

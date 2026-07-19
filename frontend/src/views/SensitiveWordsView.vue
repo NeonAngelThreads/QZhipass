@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import {
   Bell,
   Clock,
@@ -13,30 +13,36 @@ import {
   Upload,
   Warning,
 } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
+import http, { getErrorMessage } from '../api/http'
 
-// ========== Mock data ==========
-interface SensitiveWord {
+// ========== API data types ==========
+interface CensorKeywordDTO {
   id: number
-  code: string
-  name: string
-  category: string
-  riskLevel: '高风险' | '中风险' | '低风险'
-  status: '启用' | '停用'
-  triggerCount: number
+  keyword: string
+  enabled: boolean
+  createdAt: string
 }
 
-const words = ref<SensitiveWord[]>([
-  { id: 1, code: 'SW-001', name: '敏感词A（政治类）', category: '政治敏感', riskLevel: '高风险', status: '启用', triggerCount: 1280 },
-  { id: 2, code: 'SW-002', name: '敏感词B（暴恐类）', category: '暴力恐怖', riskLevel: '高风险', status: '启用', triggerCount: 560 },
-  { id: 3, code: 'SW-003', name: '敏感词C（色情类）', category: '色情低俗', riskLevel: '中风险', status: '启用', triggerCount: 2340 },
-  { id: 4, code: 'SW-004', name: '敏感词D（广告类）', category: '垃圾广告', riskLevel: '中风险', status: '启用', triggerCount: 892 },
-  { id: 5, code: 'SW-005', name: '敏感词E（辱骂类）', category: '人身攻击', riskLevel: '中风险', status: '启用', triggerCount: 3156 },
-  { id: 6, code: 'SW-006', name: '敏感词F（金融类）', category: '金融诈骗', riskLevel: '高风险', status: '启用', triggerCount: 445 },
-  { id: 7, code: 'SW-007', name: '敏感词G（低俗类）', category: '色情低俗', riskLevel: '低风险', status: '停用', triggerCount: 67 },
-  { id: 8, code: 'SW-008', name: '敏感词H（其他类）', category: '其他违规', riskLevel: '低风险', status: '启用', triggerCount: 123 },
-  { id: 9, code: 'SW-009', name: '敏感词I（政治类）', category: '政治敏感', riskLevel: '高风险', status: '启用', triggerCount: 2100 },
-  { id: 10, code: 'SW-010', name: '敏感词J（广告类）', category: '垃圾广告', riskLevel: '低风险', status: '停用', triggerCount: 34 },
-])
+// ========== Reactive data ==========
+const keywords = ref<CensorKeywordDTO[]>([])
+const loading = ref(false)
+
+// Load from API
+async function loadKeywords() {
+  loading.value = true
+  try {
+    const res = await http.get('/v1/admin/keywords')
+    const data = res.data
+    if (data && data.items) {
+      keywords.value = data.items as CensorKeywordDTO[]
+    }
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, 'Failed to load keywords'))
+  } finally {
+    loading.value = false
+  }
+}
 
 // ========== Filters ==========
 const searchKeyword = ref('')
@@ -72,13 +78,11 @@ function toggleOne(id: number) {
   selectedIds.value = next
 }
 
+
 // ========== Filtered data ==========
 const filteredWords = computed(() => {
-  return words.value.filter(w => {
-    if (searchKeyword.value && !w.name.includes(searchKeyword.value) && !w.code.includes(searchKeyword.value)) return false
-    if (filterCategory.value && w.category !== filterCategory.value) return false
-    if (filterRiskLevel.value && w.riskLevel !== filterRiskLevel.value) return false
-    if (filterStatus.value && w.status !== filterStatus.value) return false
+  return keywords.value.filter(w => {
+    if (searchKeyword.value && !w.keyword.includes(searchKeyword.value)) return false
     return true
   })
 })
@@ -97,10 +101,10 @@ function handlePageChange(page: number) {
 }
 
 // ========== Dashboard stats ==========
-const totalWords = computed(() => words.value.length)
-const todayTriggers = computed(() => words.value.reduce((sum, w) => sum + w.triggerCount, 0))
-const highRiskCount = computed(() => words.value.filter(w => w.riskLevel === '高风险').length)
-const lastUpdateTime = '2026-06-30 10:35:22'
+const totalWords = computed(() => keywords.value.length)
+const todayTriggers = computed(() => 0)
+const highRiskCount = computed(() => 0)
+const lastUpdateTime = ref('...')
 
 // ========== Sidebar nav ==========
 const sidebarCollapsed = ref(false)
@@ -112,32 +116,88 @@ function riskClass(level: string) {
   return 'bg-blue-50 text-blue-600 border-blue-200'
 }
 
+// ========== Status display ==========
+function statusText(enabled: boolean) {
+  return enabled ? '启用' : '停用'
+}
+
 // ========== Actions ==========
-function toggleStatus(word: SensitiveWord) {
-  word.status = word.status === '启用' ? '停用' : '启用'
+async function toggleStatus(word: CensorKeywordDTO) {
+  try {
+    if (word.enabled) {
+      await http.put(`/v1/admin/keywords/${word.id}/disable`)
+      ElMessage.success('已停用')
+    } else {
+      await http.put(`/v1/admin/keywords/${word.id}/enable`)
+      ElMessage.success('已启用')
+    }
+    await loadKeywords()
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '操作失败'))
+  }
 }
 
-function batchEnable() {
-  words.value.forEach(w => {
-    if (selectedIds.value.has(w.id)) w.status = '启用'
-  })
-  selectedIds.value = new Set()
+async function batchEnable() {
+  try {
+    for (const id of selectedIds.value) {
+      await http.put(`/v1/admin/keywords/${id}/enable`)
+    }
+    ElMessage.success('已批量启用')
+    selectedIds.value = new Set()
+    await loadKeywords()
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '操作失败'))
+  }
 }
 
-function batchDisable() {
-  words.value.forEach(w => {
-    if (selectedIds.value.has(w.id)) w.status = '停用'
-  })
-  selectedIds.value = new Set()
+async function batchDisable() {
+  try {
+    for (const id of selectedIds.value) {
+      await http.put(`/v1/admin/keywords/${id}/disable`)
+    }
+    ElMessage.success('已批量停用')
+    selectedIds.value = new Set()
+    await loadKeywords()
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '操作失败'))
+  }
 }
 
-function addWord() {
-  // placeholder
+async function deleteWord(word: CensorKeywordDTO) {
+  try {
+    await http.delete(`/v1/admin/keywords/${word.id}`)
+    ElMessage.success('已删除')
+    await loadKeywords()
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '删除失败'))
+  }
+}
+
+// ========== Add dialog ==========
+const addDialogVisible = ref(false)
+const newKeyword = ref('')
+async function addWord() {
+  if (!newKeyword.value.trim()) return
+  try {
+    await http.post('/v1/admin/keywords', { keyword: newKeyword.value.trim() })
+    ElMessage.success('已添加')
+    addDialogVisible.value = false
+    newKeyword.value = ''
+    await loadKeywords()
+  } catch (e) {
+    ElMessage.error(getErrorMessage(e, '添加失败'))
+  }
 }
 
 function importDict() {
   // placeholder
 }
+
+onMounted(() => {
+  loadKeywords().then(() => {
+    lastUpdateTime.value = new Date().toLocaleString('zh-CN')
+  })
+})
 </script>
 
 <template>
@@ -157,31 +217,34 @@ function importDict() {
 
       <!-- Nav items -->
       <nav class="flex-1 overflow-y-auto px-2 py-3">
-        <button
-          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 hover:text-white"
-          :class="true ? 'bg-gray-800 text-white' : ''"
+        <router-link
+          to="/"
+          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 hover:text-white no-underline"
         >
           <el-icon :size="16"><HomeFilled /></el-icon>
           <span v-show="!sidebarCollapsed" class="truncate">首页</span>
-        </button>
-        <button
-          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-blue-400 bg-blue-900/40 transition"
+        </router-link>
+        <router-link
+          to="/admin/sensitive-words"
+          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-blue-400 bg-blue-900/40 transition no-underline"
         >
           <el-icon :size="16"><DataBoard /></el-icon>
           <span v-show="!sidebarCollapsed" class="truncate font-medium">敏感词概览</span>
-        </button>
-        <button
-          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 hover:text-white"
+        </router-link>
+        <router-link
+          to="/admin/sensitive-words"
+          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 hover:text-white no-underline"
         >
           <el-icon :size="16"><Lock /></el-icon>
           <span v-show="!sidebarCollapsed" class="truncate">敏感词管理</span>
-        </button>
-        <button
-          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 hover:text-white"
+        </router-link>
+        <router-link
+          to="/admin/security-logs"
+          class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 hover:text-white no-underline"
         >
           <el-icon :size="16"><Document /></el-icon>
           <span v-show="!sidebarCollapsed" class="truncate">触发日志</span>
-        </button>
+        </router-link>
         <button
           class="mb-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition hover:bg-gray-800 hover:text-white"
         >
@@ -290,55 +353,13 @@ function importDict() {
                 clearable
               />
             </div>
-            <el-select
-              v-model="filterCategory"
-              placeholder="分类筛选"
-              size="small"
-              clearable
-              class="w-32"
-            >
-              <el-option
-                v-for="cat in categories"
-                :key="cat"
-                :label="cat"
-                :value="cat"
-              />
-            </el-select>
-            <el-select
-              v-model="filterRiskLevel"
-              placeholder="风险等级"
-              size="small"
-              clearable
-              class="w-28"
-            >
-              <el-option
-                v-for="level in riskLevels"
-                :key="level"
-                :label="level"
-                :value="level"
-              />
-            </el-select>
-            <el-select
-              v-model="filterStatus"
-              placeholder="状态筛选"
-              size="small"
-              clearable
-              class="w-24"
-            >
-              <el-option
-                v-for="s in statuses"
-                :key="s"
-                :label="s"
-                :value="s"
-              />
-            </el-select>
           </div>
 
           <!-- Right: action buttons -->
           <div class="flex items-center gap-2">
             <button
               class="flex items-center gap-1.5 rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-medium text-white transition hover:bg-blue-700 shadow-sm"
-              @click="addWord"
+              @click="addDialogVisible = true"
             >
               <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 4v16m8-8H4" />
@@ -380,10 +401,9 @@ function importDict() {
                     @change="toggleAll"
                   />
                 </th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">敏感词名称/编码</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">风险等级</th>
+                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">敏感词</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">状态</th>
-                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">触发记录</th>
+                <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">创建时间</th>
                 <th class="px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">操作</th>
               </tr>
             </thead>
@@ -401,52 +421,45 @@ function importDict() {
                   />
                 </td>
                 <td class="px-4 py-3">
-                  <p class="font-medium text-gray-800">{{ word.name }}</p>
-                  <p class="mt-0.5 text-xs text-gray-400">{{ word.code }}</p>
-                </td>
-                <td class="px-4 py-3">
-                  <span
-                    class="inline-block rounded-full border px-2.5 py-0.5 text-xs font-medium"
-                    :class="riskClass(word.riskLevel)"
-                  >
-                    {{ word.riskLevel }}
-                  </span>
+                  <p class="font-medium text-gray-800">{{ word.keyword }}</p>
                 </td>
                 <td class="px-4 py-3">
                   <span
                     class="text-xs"
-                    :class="word.status === '启用' ? 'text-green-600' : 'text-gray-400'"
+                    :class="word.enabled ? 'text-green-600' : 'text-gray-400'"
                   >
-                    {{ word.status }}
+                    {{ statusText(word.enabled) }}
                   </span>
                 </td>
                 <td class="px-4 py-3">
-                  <span class="text-xs text-gray-500">{{ word.triggerCount }} 次</span>
+                  <span class="text-xs text-gray-500">{{ word.createdAt }}</span>
                 </td>
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-2 text-xs">
-                    <button class="text-blue-600 transition hover:text-blue-800 hover:underline">
-                      查看触发记录
-                    </button>
-                    <button class="text-blue-600 transition hover:text-blue-800 hover:underline">
-                      编辑
-                    </button>
                     <button
                       class="transition hover:underline"
-                      :class="word.status === '启用' ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'"
+                      :class="word.enabled ? 'text-orange-500 hover:text-orange-700' : 'text-green-500 hover:text-green-700'"
                       @click="toggleStatus(word)"
                     >
-                      {{ word.status === '启用' ? '停用' : '启用' }}
+                      {{ word.enabled ? '停用' : '启用' }}
                     </button>
-                    <button class="text-red-400 transition hover:text-red-600 hover:underline">
-                      注销
+                    <button
+                      class="text-red-400 transition hover:text-red-600 hover:underline"
+                      @click="deleteWord(word)"
+                    >
+                      删除
                     </button>
                   </div>
                 </td>
               </tr>
-              <tr v-if="pagedWords.length === 0">
-                <td colspan="6" class="px-4 py-12 text-center text-sm text-gray-400">
+              <tr v-if="pagedWords.length === 0 && !loading">
+                <td colspan="5" class="px-4 py-12 text-center text-sm text-gray-400">
                   暂无数据
+                </td>
+              </tr>
+              <tr v-if="loading">
+                <td colspan="5" class="px-4 py-8 text-center text-sm text-gray-400">
+                  加载中...
                 </td>
               </tr>
             </tbody>
@@ -469,5 +482,14 @@ function importDict() {
         </div>
       </div>
     </div>
+
+    <!-- Add Keyword Dialog -->
+    <el-dialog v-model="addDialogVisible" title="新增敏感词" width="400px" :close-on-click-modal="false">
+      <el-input v-model="newKeyword" placeholder="输入敏感词" />
+      <template #footer>
+        <el-button @click="addDialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="addWord">确认</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>

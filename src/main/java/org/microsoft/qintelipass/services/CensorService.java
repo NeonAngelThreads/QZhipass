@@ -1,9 +1,12 @@
 package org.microsoft.qintelipass.services;
 
+import org.microsoft.qintelipass.dtos.CensorRecordDTO;
 import org.microsoft.qintelipass.entity.CensorKeyword;
 import org.microsoft.qintelipass.entity.CensorRecord;
 import org.microsoft.qintelipass.repository.CensorKeywordRepository;
 import org.microsoft.qintelipass.repository.CensorRecordRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -127,6 +130,26 @@ public class CensorService {
         System.out.println("Hit keywords: " + record.getHitKeywords());
     }
 
+
+    @Transactional(readOnly = true)
+    public Page<CensorRecordDTO> listAllRecords(int page, int size) {
+        return censorRecordRepository.findAllByOrderByCreatedAtDesc(PageRequest.of(page, size))
+                .map(CensorRecordDTO::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CensorRecordDTO> searchRecords(String query, int page, int size) {
+        return censorRecordRepository
+                .findByUsernameContainingOrHitKeywordsContainingAllIgnoreCaseOrderByCreatedAtDesc(
+                        query, query, PageRequest.of(page, size))
+                .map(CensorRecordDTO::from);
+    }
+
+    @Transactional(readOnly = true)
+    public Page<CensorRecordDTO> listRecordsByUser(Long userId, int page, int size) {
+        return censorRecordRepository.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(page, size))
+                .map(CensorRecordDTO::from);
+    }
 
     private List<String> findExactHitKeywords(String content) {
         List<String> hits = new ArrayList<>();

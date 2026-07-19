@@ -3,6 +3,7 @@ package org.microsoft.qintelipass.models;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.util.Snowflake;
 
@@ -27,6 +28,9 @@ public class User {
     private String email;
     @Column(name = "password_hash")
     private String passwordHash;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false)
+    private UserRole role = UserRole.USER;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private UserStatus status = UserStatus.NORMAL;

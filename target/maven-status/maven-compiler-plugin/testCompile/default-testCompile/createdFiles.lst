@@ -1,0 +1,6 @@
+org\microsoft\qintelipass\QZhipassApplicationTests.class
+org\microsoft\qintelipass\password\PasswordTests.class
+org\microsoft\qintelipass\redis\RedisConnectionTests.class
+org\microsoft\qintelipass\services\ConversationServiceTests.class
+org\microsoft\qintelipass\services\CurrentUserServiceTests.class
+org\microsoft\qintelipass\SmsCodeGenerationTest.class

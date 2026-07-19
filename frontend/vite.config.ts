@@ -7,6 +7,7 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    allowedHosts: ['fastball-staple-regular.ngrok-free.dev', '.ngrok-free.dev'],
     proxy: {
       '/api': {
         target: 'http://localhost:7510',
