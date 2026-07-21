@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企智通 · 管理员后台 - Token统计看板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif; }
+        .card { transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1); }
+        .card:hover { transform: translateY(-1px); box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1); }
+        .section-header { font-weight: 600; color: #1e2937; }
+        .metric { font-variant-numeric: tabular-nums; }
+        .data-table th { background: #f8fafc; font-weight: 600; color: #475569; }
+        .nav-active { background: #eff6ff; color: #1e40af; font-weight: 600; }
+    </style>
+</head>
+<body class="bg-slate-100">
+    <!-- Admin Top Bar -->
+    <div class="bg-slate-900 text-white">
+        <div class="max-w-screen-2xl mx-auto px-8 py-3 flex items-center justify-between">
+            <div class="flex items-center gap-x-4">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                        <i class="fa-solid fa-robot text-white"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold text-xl tracking-tight">企智通</span>
+                        <span class="ml-2 text-xs px-2 py-0.5 bg-white/10 rounded text-blue-200">管理员后台</span>
+                    </div>
+                </div>
+                <div class="text-xs text-slate-400 pl-4 border-l border-white/20">Token 统计与配额管理</div>
+            </div>
+            
+            <div class="flex items-center gap-x-4 text-sm">
+                <div class="flex items-center gap-x-2 px-3 py-1.5 bg-white/10 rounded-2xl">
+                    <img src="https://i.pravatar.cc/24?img=47" class="w-6 h-6 rounded-full">
+                    <span class="font-medium">管理员</span>
+                    <span class="text-xs bg-emerald-500 px-2 py-px rounded">Admin</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="max-w-screen-2xl mx-auto px-8 pt-8 pb-12">
+        <!-- Header -->
+        <div class="flex items-end justify-between mb-8">
+            <div>
+                <h1 class="text-3xl font-bold tracking-tighter text-slate-900">Token 使用统计看板</h1>
+                <p class="text-slate-500 mt-1">实时监控全员 Token 消耗 · 配额管理 · 立即生效</p>
+            </div>
+            <div class="flex gap-x-3">
+                <button onclick="refreshData()" class="px-5 py-2.5 bg-white border border-slate-300 hover:bg-slate-50 rounded-2xl text-sm font-medium flex items-center gap-x-2">
+                    <i class="fa-solid fa-sync-alt"></i>
+                    <span>刷新数据</span>
+                </button>
+                <div class="text-xs px-4 py-2.5 bg-white border border-slate-200 rounded-2xl text-slate-500 flex items-center">
+                    <i class="fa-regular fa-clock mr-2"></i> 最后更新：2026-06-26 10:08
+                </div>
+            </div>
+        </div>
+
+        <!-- KPI Cards -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm card">
+                <div class="flex justify-between">
+                    <div>
+                        <div class="text-sm text-slate-500">活跃用户数</div>
+                        <div class="text-5xl font-semibold tabular-nums tracking-tighter mt-3 text-slate-900 metric">—</div>
+                        <div class="text-emerald-600 text-sm mt-1">加载中...</div>
+                    </div>
+                    <div class="w-14 h-14 bg-emerald-100 text-emerald-600 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-users text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm card">
+                <div class="flex justify-between">
+                    <div>
+                        <div class="text-sm text-slate-500">超额用户数</div>
+                        <div class="text-5xl font-semibold tabular-nums tracking-tighter mt-3 text-red-600 metric">—</div>
+                        <div class="text-red-500 text-sm mt-1">加载中...</div>
+                    </div>
+                    <div class="w-14 h-14 bg-red-100 text-red-600 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-exclamation-triangle text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="bg-white rounded-3xl p-6 border border-slate-100 shadow-sm card">
+                <div class="flex justify-between">
+                    <div>
+                        <div class="text-sm text-slate-500">今日总消耗</div>
+                        <div class="flex items-baseline mt-3">
+                            <span class="text-5xl font-semibold tabular-nums tracking-tighter text-slate-900 metric">—</span>
+                            <span class="text-2xl text-slate-400 ml-1">M</span>
+                        </div>
+                        <div class="text-emerald-600 text-sm mt-1">↑ 18% vs 昨天</div>
+                    </div>
+                    <div class="w-14 h-14 bg-blue-100 text-blue-600 rounded-2xl flex items-center justify-center">
+                        <i class="fa-solid fa-chart-line text-3xl"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Chart -->
+        <div class="bg-white rounded-3xl p-7 border border-slate-100 shadow-sm mb-8 card">
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <div class="section-header text-xl flex items-center gap-x-3">
+                        <i class="fa-solid fa-chart-bar text-blue-600"></i>
+                        <span>近7日各模型 Token 消耗趋势</span>
+                    </div>
+                    <p class="text-sm text-slate-500 mt-1">按天统计 · 不同颜色区分大模型</p>
+                </div>
+                <div class="flex gap-x-2 text-xs">
+                    <div class="px-4 py-1.5 bg-blue-50 text-blue-700 rounded-2xl flex items-center gap-x-2"><div class="w-2 h-2 bg-blue-600 rounded-full"></div> 千问</div>
+                    <div class="px-4 py-1.5 bg-emerald-50 text-emerald-700 rounded-2xl flex items-center gap-x-2"><div class="w-2 h-2 bg-emerald-600 rounded-full"></div> DeepSeek</div>
+                    <div class="px-4 py-1.5 bg-amber-50 text-amber-700 rounded-2xl flex items-center gap-x-2"><div class="w-2 h-2 bg-amber-500 rounded-full"></div> Llama-3.1</div>
+                </div>
+            </div>
+            <div class="h-[340px]">
+                <canvas id="adminChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Table + Quota -->
+        <div class="grid grid-cols-1 xl:grid-cols-12 gap-6">
+            <!-- Employee Table -->
+            <div class="xl:col-span-8 bg-white rounded-3xl border border-slate-100 shadow-sm overflow-hidden card">
+                <div class="px-7 py-5 border-b flex items-center justify-between">
+                    <div class="section-header text-lg">员工 Token 使用明细（今日）</div>
+                    <div class="flex items-center gap-x-3">
+                        <select id="deptFilter" onchange="filterTable()" class="border border-slate-300 rounded-2xl px-4 py-2 text-sm">
+                            <option value="">全部部门</option>
+                            <option value="技术部">技术部</option>
+                            <option value="产品部">产品部</option>
+                            <option value="运营部">运营部</option>
+                            <option value="算法部">算法部</option>
+                        </select>
+                        <input id="searchInput" oninput="filterTable()" placeholder="搜索姓名或ID..." 
+                               class="border border-slate-300 rounded-2xl px-4 py-2 text-sm w-64">
+                    </div>
+                </div>
+                
+                <div class="overflow-auto max-h-[420px]">
+                    <table class="w-full text-sm">
+                        <thead>
+                            <tr class="border-b text-left text-slate-500">
+                                <th class="px-7 py-4">员工</th>
+                                <th class="px-4 py-4">部门</th>
+                                <th class="px-4 py-4 text-right">今日用量</th>
+                                <th class="px-4 py-4 text-right">限额</th>
+                                <th class="px-4 py-4 text-center">使用率</th>
+                                <th class="px-4 py-4 text-center">状态</th>
+                                <th class="px-7 py-4 text-center">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tbody" class="divide-y"></tbody>
+                    </table>
+                </div>
+                <div class="px-7 py-3 bg-slate-50 text-xs text-slate-500 flex justify-between items-center">
+                    <div>共 <span id="totalCount">42</span> 人 · 每日 00:00 自动清零</div>
+                    <div>第 1 / 3 页</div>
+                </div>
+            </div>
+
+            <!-- Quota Setting -->
+            <div class="xl:col-span-4 bg-white rounded-3xl border border-slate-100 shadow-sm p-7 card flex flex-col">
+                <div class="section-header text-lg mb-4 flex items-center gap-x-2">
+                    <i class="fa-solid fa-sliders-h text-blue-600"></i>
+                    <span>统一配额设置</span>
+                </div>
+                
+                <div class="mb-6">
+                    <div class="text-xs text-slate-500 mb-1">当前全局默认限额</div>
+                    <div class="flex items-baseline">
+                        <span id="currentLimit" class="font-mono text-6xl font-semibold tabular-nums tracking-tighter">100000</span>
+                        <span class="text-slate-400 ml-2">tokens/日</span>
+                    </div>
+                </div>
+                
+                <div class="mt-auto">
+                    <label class="text-xs font-medium text-slate-500 block mb-2">设置新的统一限额（立即生效）</label>
+                    <div class="flex gap-x-3">
+                        <input id="newLimitInput" type="number" value="120000" step="5000"
+                               class="flex-1 border border-slate-300 focus:border-blue-500 rounded-2xl px-5 py-3 text-xl font-mono outline-none">
+                        <button onclick="applyQuota()" 
+                                class="px-8 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold rounded-2xl text-sm whitespace-nowrap transition-colors">
+                            保存并应用
+                        </button>
+                    </div>
+                    <p class="text-[10px] text-amber-600 mt-3 flex items-center gap-x-1.5">
+                        <i class="fa-solid fa-bolt"></i>
+                        <span>调用后端接口 PUT /api/v1/admin/token/quota 后立即生效</span>
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 模拟后端接口层（真实项目替换成 axios） ====================
+        const mockApi = {
+            // 获取仪表盘数据（KPI + 图表 + 员工列表）
+            async getDashboardData() {
+                await new Promise(r => setTimeout(r, 350));
+                return { success: true };
+                // 真实项目这里应该返回 KPI + 图表数据 + 员工列表
+            },
+
+            // 统一设置配额（对应 PUT /api/v1/admin/token/quota）
+            async updateGlobalQuota(newLimit) {
+                await new Promise(r => setTimeout(r, 420)); // 模拟后端处理 + Redis 清除
+                return { success: true, affectedUsers: 187 };
+            }
+        };
+
+        // Tailwind
+        function initTailwind() {
+            // already using CDN classes
+        }
+
+        const employees = [];   // 初始干净状态，数据由接口加载（真实项目从 getEmployeeTokenList 获取）
+
+        let globalLimit = 100000;
+
+        function renderTable(filtered = employees) {
+            const tbody = document.getElementById('tbody');
+            tbody.innerHTML = '';
+            
+            filtered.forEach(emp => {
+                const percent = Math.min(Math.round((emp.used / emp.limit) * 100), 100);
+                let statusHTML = '';
+                if (emp.status === 'over') statusHTML = `<span class="px-3 py-px text-xs rounded-full bg-red-100 text-red-700 font-medium">已超额</span>`;
+                else if (emp.status === 'warning') statusHTML = `<span class="px-3 py-px text-xs rounded-full bg-amber-100 text-amber-700 font-medium">即将超</span>`;
+                else statusHTML = `<span class="px-3 py-px text-xs rounded-full bg-emerald-100 text-emerald-700 font-medium">正常</span>`;
+                
+                tbody.innerHTML += `
+                    <tr class="hover:bg-slate-50">
+                        <td class="px-7 py-4">
+                            <div class="flex items-center gap-x-3">
+                                <img src="https://i.pravatar.cc/28?img=${parseInt(emp.id.slice(-2))}" class="w-7 h-7 rounded-full">
+                                <div><div class="font-medium">${emp.name}</div><div class="text-xs text-slate-400 font-mono">${emp.id}</div></div>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4"><span class="px-3 py-1 text-xs bg-slate-100 rounded-xl">${emp.dept}</span></td>
+                        <td class="px-4 py-4 text-right font-mono font-semibold">${emp.used.toLocaleString()}</td>
+                        <td class="px-4 py-4 text-right font-mono text-slate-500">${emp.limit.toLocaleString()}</td>
+                        <td class="px-4 py-4">
+                            <div class="flex flex-col items-center">
+                                <div class="w-16 h-1.5 bg-slate-100 rounded-full overflow-hidden mb-1"><div class="h-1.5 rounded-full ${percent>90?'bg-red-500':percent>70?'bg-amber-500':'bg-emerald-500'}" style="width:${percent}%"></div></div>
+                                <span class="text-xs font-medium">${percent}%</span>
+                            </div>
+                        </td>
+                        <td class="px-4 py-4 text-center">${statusHTML}</td>
+                        <td class="px-7 py-4 text-center">
+                            <button onclick="adjustQuota('${emp.id}')" class="text-xs px-4 py-1 text-blue-600 hover:bg-blue-50 rounded-xl">调整限额</button>
+                        </td>
+                    </tr>`;
+            });
+            document.getElementById('totalCount').textContent = filtered.length;
+        }
+
+        function filterTable() {
+            const dept = document.getElementById('deptFilter').value;
+            const keyword = document.getElementById('searchInput').value.toLowerCase();
+            let filtered = employees;
+            if (dept) filtered = filtered.filter(e => e.dept === dept);
+            if (keyword) filtered = filtered.filter(e => e.name.toLowerCase().includes(keyword) || e.id.toLowerCase().includes(keyword));
+            renderTable(filtered);
+        }
+
+        function updateGlobalLimitDisplay() {
+            document.getElementById('currentLimit').textContent = globalLimit.toLocaleString();
+        }
+
+        async function applyQuota() {
+            const btns = document.querySelectorAll('button');
+            const inputEl = document.getElementById('newLimitInput');
+            const newLimit = parseInt(inputEl.value);
+
+            if (!newLimit || newLimit < 1000) {
+                alert('请输入有效数字 ≥ 1000');
+                return;
+            }
+
+            // 显示 loading
+            const originalText = event.currentTarget ? event.currentTarget.innerHTML : '';
+            inputEl.disabled = true;
+
+            try {
+                // 真实项目：await axios.put('/api/v1/admin/token/quota', { daily_token_limit: newLimit })
+                const res = await mockApi.updateGlobalQuota(newLimit);
+
+                if (res.success) {
+                    globalLimit = newLimit;
+
+                    employees.forEach(emp => {
+                        if (emp.limit === 100000 || emp.limit === globalLimit) {
+                            emp.limit = newLimit;
+                            if (emp.used > newLimit) emp.status = 'over';
+                            else if (emp.used / newLimit > 0.85) emp.status = 'warning';
+                            else emp.status = 'normal';
+                        }
+                    });
+
+                    updateGlobalLimitDisplay();
+                    renderTable();
+                    showToast(`全局配额已更新为 ${newLimit.toLocaleString()}，Redis 缓存已清除，立即生效！`, 'success');
+                }
+            } catch (e) {
+                showToast('更新失败，请重试', 'error');
+            } finally {
+                inputEl.disabled = false;
+            }
+        }
+
+        function adjustQuota(userId) {
+            const emp = employees.find(e => e.id === userId);
+            const newVal = prompt(`为 ${emp.name} 设置新限额（当前 ${emp.limit}）：`, emp.limit);
+            if (!newVal) return;
+            const num = parseInt(newVal);
+            if (isNaN(num)) return;
+            emp.limit = num;
+            if (emp.used > num) emp.status = 'over';
+            else if (emp.used / num > 0.85) emp.status = 'warning';
+            else emp.status = 'normal';
+            renderTable();
+            showToast(`${emp.name} 限额已更新为 ${num.toLocaleString()}，立即生效`, 'success');
+        }
+
+        function initChart() {
+            const ctx = document.getElementById('adminChart');
+
+            // 动态生成近7天日期 + 星期（随系统日期自动变化）
+            const labels = [];
+            const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const weekday = weekdays[d.getDay()];
+                labels.push(`${month}-${day} ${weekday}`);
+            }
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: '千问', data: [0,0,0,0,0,0,0], backgroundColor: '#2563eb', borderRadius: 5, barThickness: 16 },
+                        { label: 'DeepSeek', data: [0,0,0,0,0,0,0], backgroundColor: '#10b981', borderRadius: 5, barThickness: 16 },
+                        { label: 'Llama-3.1', data: [0,0,0,0,0,0,0], backgroundColor: '#f59e0b', borderRadius: 5, barThickness: 16 }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw.toLocaleString() + ' tokens' } } },
+                    scales: {
+                        x: { grid: { color: '#f1e7ff' } },
+                        y: { grid: { color: '#f1e7ff' }, ticks: { callback: v => (v/1000000).toFixed(1)+'M' } }
+                    }
+                }
+            });
+        }
+
+        function showToast(msg, type='success') {
+            const toast = document.createElement('div');
+            toast.className = `fixed bottom-6 right-6 px-6 py-3 rounded-2xl shadow-xl text-white text-sm flex items-center gap-x-3 ${type==='success'?'bg-emerald-600':'bg-red-600'}`;
+            toast.innerHTML = `<i class="fa-solid ${type==='success'?'fa-check-circle':'fa-exclamation-circle'}"></i> <span>${msg}</span>`;
+            document.body.appendChild(toast);
+            setTimeout(() => { toast.style.transition='all .2s'; toast.style.opacity='0'; setTimeout(()=>toast.remove(),200); }, 2800);
+        }
+
+        function refreshData() {
+            showToast('数据已从 Redis + MySQL 刷新', 'success');
+            // small random update for demo
+            employees.forEach(e => e.used = Math.floor(e.used * (0.95 + Math.random()*0.1)));
+            renderTable();
+        }
+
+        async function init() {
+            initTailwind();
+            // 真实项目：先 await mockApi.getDashboardData() 再渲染
+            renderTable();
+            updateGlobalLimitDisplay();
+            initChart();
+            
+            setTimeout(() => {
+                console.log('%c[企智通管理员Demo] 已加载。点击「保存并应用」会模拟调用后端接口 + Redis 清除。', 'color:#64748b');
+            }, 500);
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>

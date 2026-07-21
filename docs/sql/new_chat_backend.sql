@@ -25,6 +25,10 @@ CREATE TABLE IF NOT EXISTS conversations (
     model_key VARCHAR(100) NULL,
     status VARCHAR(32) NOT NULL DEFAULT 'ACTIVE',
     title_customized TINYINT(1) NOT NULL DEFAULT 0,
+    title_generated TINYINT(1) NOT NULL DEFAULT 0,
+    first_answered_at DATETIME(6) NULL,
+    last_saved_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
+    version BIGINT NOT NULL DEFAULT 0,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
     last_message_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
@@ -44,11 +48,15 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
     role VARCHAR(20) NOT NULL,
     content LONGTEXT NOT NULL,
     model_key VARCHAR(100) NULL,
+    token_count INT NOT NULL DEFAULT 0,
+    status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
+    request_id VARCHAR(64) NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
     KEY idx_conversation_messages_conversation (conversation_id),
     KEY idx_conversation_messages_conversation_created (conversation_id, created_at),
     KEY idx_conversation_messages_model_key (model_key),
+    UNIQUE KEY uk_conversation_message_request_role (conversation_id, request_id, role),
     CONSTRAINT fk_conversation_messages_conversation
         FOREIGN KEY (conversation_id) REFERENCES conversations (id)
         ON UPDATE CASCADE
@@ -59,6 +67,20 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
         ON DELETE SET NULL,
     CONSTRAINT chk_conversation_messages_role
         CHECK (role IN ('USER', 'ASSISTANT', 'SYSTEM'))
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS conversation_memories (
+    conversation_id BIGINT NOT NULL,
+    summary_content LONGTEXT NOT NULL,
+    summary_token_count INT NOT NULL DEFAULT 0,
+    summarized_through_message_id BIGINT NULL,
+    updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+    version BIGINT NOT NULL DEFAULT 0,
+    PRIMARY KEY (conversation_id),
+    CONSTRAINT fk_conversation_memories_conversation
+        FOREIGN KEY (conversation_id) REFERENCES conversations (id)
+        ON UPDATE CASCADE
+        ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Non-sensitive local/demo model rows for development and tests.

@@ -29,26 +29,29 @@ import java.util.Locale;
 @Service
 // Core conversation workflow: create chats, save messages, update titles/models, and enforce ownership.
 public class ConversationService {
-    private static final int DEFAULT_LIMIT = 20;
-    private static final int MAX_LIMIT = 100;
+    private static final int DEFAULT_PAGE_SIZE = 20;
+    private static final int MAX_PAGE_SIZE = 100;
     private static final int MAX_MESSAGE_LENGTH = 20_000;
-    private static final int MAX_TITLE_LENGTH = 60;
+    private static final int MAX_TITLE_LENGTH = 25;
 
     private final ConversationRepository conversationRepository;
     private final ConversationMessageRepository messageRepository;
     private final AiModelService aiModelService;
     private final ConversationTitleGenerator titleGenerator;
+    private final TokenCounter tokenCounter;
 
     public ConversationService(
             ConversationRepository conversationRepository,
             ConversationMessageRepository messageRepository,
             AiModelService aiModelService,
-            ConversationTitleGenerator titleGenerator
+            ConversationTitleGenerator titleGenerator,
+            TokenCounter tokenCounter
     ) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.aiModelService = aiModelService;
         this.titleGenerator = titleGenerator;
+        this.tokenCounter = tokenCounter;
     }
 
     @Transactional
@@ -72,9 +75,19 @@ public class ConversationService {
 
     @Transactional(readOnly = true)
     public List<ConversationSummaryResponse> listRecentConversations(Long userId, Integer limit) {
+        return listRecentConversations(userId, 0, limit);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ConversationSummaryResponse> listRecentConversations(Long userId, Integer page, Integer limit) {
+        int safePage = normalizePage(page);
         int safeLimit = normalizeLimit(limit);
         return conversationRepository
-                .findByUserIdOrderByLastMessageAtDescUpdatedAtDesc(userId, PageRequest.of(0, safeLimit))
+                .findByUserIdAndStatusOrderByLastMessageAtDescUpdatedAtDescIdDesc(
+                        userId,
+                        Conversation.STATUS_ACTIVE,
+                        PageRequest.of(safePage, safeLimit)
+                )
                 .stream()
                 .map(conversation -> ConversationSummaryResponse.from(
                         conversation,
@@ -115,11 +128,14 @@ public class ConversationService {
         message.setRole(role);
         message.setContent(content);
         message.setModelKey(modelKey);
+        message.setTokenCount(tokenCounter.count(content));
+        message.setStatus(org.microsoft.qintelipass.entity.ConversationMessageStatus.COMPLETED);
 
         ConversationMessage savedMessage = messageRepository.save(message);
         LocalDateTime now = LocalDateTime.now();
         conversation.setUpdatedAt(now);
         conversation.setLastMessageAt(now);
+        conversation.setLastSavedAt(now);
 
         updateDefaultTitleAfterFirstAssistantMessage(conversation, role, content);
         return ConversationMessageResponse.from(savedMessage);
@@ -164,12 +180,22 @@ public class ConversationService {
 
     private int normalizeLimit(Integer limit) {
         if (limit == null) {
-            return DEFAULT_LIMIT;
+            return DEFAULT_PAGE_SIZE;
         }
         if (limit < 1) {
             throw new BadRequestException("limit must be greater than 0.");
         }
-        return Math.min(limit, MAX_LIMIT);
+        return Math.min(limit, MAX_PAGE_SIZE);
+    }
+
+    private int normalizePage(Integer page) {
+        if (page == null) {
+            return 0;
+        }
+        if (page < 0) {
+            throw new BadRequestException("page must not be negative.");
+        }
+        return page;
     }
 
     private ConversationMessageRole parseRole(String role) {
@@ -188,6 +214,9 @@ public class ConversationService {
             throw new BadRequestException("content must not be blank.");
         }
         String normalized = content.trim();
+        if (normalized.codePointCount(0, normalized.length()) > 2_000) {
+            throw new BadRequestException("content must not exceed 2000 characters.");
+        }
         if (normalized.length() > MAX_MESSAGE_LENGTH) {
             throw new BadRequestException("content is too long.");
         }
@@ -199,7 +228,7 @@ public class ConversationService {
             throw new BadRequestException("title must not be blank.");
         }
         String normalized = title.replaceAll("\\s+", " ").trim();
-        if (normalized.length() > MAX_TITLE_LENGTH) {
+        if (normalized.codePointCount(0, normalized.length()) > MAX_TITLE_LENGTH) {
             throw new BadRequestException("title is too long.");
         }
         return normalized;
@@ -213,7 +242,8 @@ public class ConversationService {
         if (role != ConversationMessageRole.ASSISTANT) {
             return;
         }
-        if (conversation.isTitleCustomized() || !Conversation.DEFAULT_TITLE.equals(conversation.getTitle())) {
+        if (conversation.isTitleGenerated() || conversation.isTitleCustomized()
+                || !Conversation.DEFAULT_TITLE.equals(conversation.getTitle())) {
             return;
         }
         if (messageRepository.countByConversation_IdAndRole(conversation.getId(), ConversationMessageRole.ASSISTANT) != 1) {
@@ -224,6 +254,9 @@ public class ConversationService {
                 .findFirstByConversation_IdAndRoleOrderByCreatedAtAsc(conversation.getId(), ConversationMessageRole.USER)
                 .map(ConversationMessage::getContent)
                 .orElse(assistantContent);
-        conversation.setTitle(titleGenerator.generateTitle(source));
+        conversation.setTitle(titleGenerator.generateTitle(source, assistantContent));
+        conversation.setTitleGenerated(true);
+        conversation.setFirstAnsweredAt(LocalDateTime.now());
+        conversation.setLastSavedAt(LocalDateTime.now());
     }
 }

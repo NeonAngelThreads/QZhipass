@@ -2,6 +2,7 @@ package org.microsoft.qintelipass.exceptions;
 
 import org.microsoft.qintelipass.response.ApiResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -19,5 +20,13 @@ public class ApiExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.error(exception.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationException(MethodArgumentNotValidException exception) {
+        String message = exception.getBindingResult().getFieldErrors().isEmpty()
+                ? "Request validation failed."
+                : exception.getBindingResult().getFieldErrors().getFirst().getDefaultMessage();
+        return ResponseEntity.badRequest().body(ApiResponse.error(message));
     }
 }

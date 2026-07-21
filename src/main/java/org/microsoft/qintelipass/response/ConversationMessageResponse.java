@@ -10,6 +10,9 @@ public record ConversationMessageResponse(
         String role,
         String content,
         String modelKey,
+        int tokenCount,
+        String status,
+        String requestId,
         LocalDateTime createdAt
 ) {
     public static ConversationMessageResponse from(ConversationMessage message) {
@@ -19,6 +22,9 @@ public record ConversationMessageResponse(
                 message.getRole().name(),
                 message.getContent(),
                 message.getModelKey(),
+                message.getTokenCount(),
+                message.getStatus().name(),
+                message.getRequestId(),
                 message.getCreatedAt()
         );
     }
