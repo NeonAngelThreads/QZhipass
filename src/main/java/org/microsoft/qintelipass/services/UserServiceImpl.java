@@ -2,6 +2,7 @@ package org.microsoft.qintelipass.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.UserDTO;
+import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.repository.UserRepository;
@@ -52,6 +53,7 @@ public class UserServiceImpl implements UserService {
         user.setWechat(wechat);
         user.setPasswordHash(passwordEncoder.encode(password));
         user.setStatus(UserStatus.NORMAL);
+        user.setRole(UserRole.USER);
         user.setCreatedAt(LocalDateTime.now());
         user.setRestored(false);
 
@@ -200,6 +202,14 @@ public class UserServiceImpl implements UserService {
             return user;
         }
         return null;
+    }
+
+    @Override
+    public User getUserByEmail(String email) {
+        if (email == null || email.trim().isEmpty()) {
+            return null;
+        }
+        return userRepository.findByEmail(email.trim()).orElse(null);
     }
 
     @Override

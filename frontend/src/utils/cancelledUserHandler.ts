@@ -18,7 +18,7 @@ import { ElMessageBox } from 'element-plus'
  */
 export function handleLoginError(error: unknown): void {
   const msg = error instanceof Error ? error.message : '登录失败'
-  if (msg.toLowerCase().includes('cancelled')) {
+  if (msg.toLowerCase().includes('cancelled') || msg.includes('注销')) {
     ElMessageBox.alert(
       '您的账号已被注销，如需恢复使用请联系管理员。',
       '账号已注销',

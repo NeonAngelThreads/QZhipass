@@ -3,6 +3,7 @@ package org.microsoft.qintelipass.models;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
+import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.util.Snowflake;
 
@@ -29,6 +30,10 @@ public class User {
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)
     private UserStatus status = UserStatus.NORMAL;
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role", nullable = false, columnDefinition = "varchar(20) default 'USER'")
+    @Builder.Default
+    private UserRole role = UserRole.USER;
     @Column(name = "username", nullable = false, unique = true)
     private String name;
     @Column(name = "department")
@@ -52,6 +57,9 @@ public class User {
         this.updatedAt = LocalDateTime.now();
         if (this.status == null) {
             this.status = UserStatus.NORMAL;
+        }
+        if (this.role == null) {
+            this.role = UserRole.USER;
         }
         if (this.restored == null) {
             this.restored = false;

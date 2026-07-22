@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import {type Component, computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
-import {ElMessage} from 'element-plus'
+import {ElMessage, ElMessageBox} from 'element-plus'
 import {useRouter} from 'vue-router'
 import BrandLogo from '../components/BrandLogo.vue'
 import http, {getErrorMessage} from '../api/http'
+import {checkAgentDeletion, deleteAgent} from '../api/agent'
 import {readLoginInfo, saveInitialConversationId} from '../api/session'
 import {useAuthStore} from '../stores/auth'
 
@@ -46,11 +47,13 @@ const models = [
   { value: 'deepseek-v4', label: 'DeepSeek-V4' },
 ]
 
-const agents = [
+const agents = ref([
   { value: 'data-analyst', label: 'Data Analyst Agent' },
   { value: 'copywriter', label: 'Copywriter Agent' },
   { value: 'coder', label: 'Code Assistant Agent' },
-]
+])
+const deletingAgentId = ref<string | null>(null)
+const blockedAgentMessages = new Map<string, string>()
 
 const chats = [
   { id: 1, title: 'Q4 数据分析报告撰写', icon: Document },
@@ -242,6 +245,52 @@ function selectAgent(val: string) {
   showAgentDropdown.value = false
 }
 
+async function handleDeleteAgent(agent: {value: string; label: string}) {
+  if (deletingAgentId.value) {
+    return
+  }
+
+  const blockedMessage = blockedAgentMessages.get(agent.value)
+  if (blockedMessage) {
+    ElMessage.warning(blockedMessage)
+    return
+  }
+
+  deletingAgentId.value = agent.value
+  try {
+    const check = await checkAgentDeletion(agent.value)
+    if (!check.canDelete) {
+      blockedAgentMessages.set(agent.value, check.message)
+      ElMessage.warning(check.message)
+      return
+    }
+
+    await ElMessageBox.confirm(
+      `确定要删除“${agent.label}”吗？`,
+      '删除 Agent',
+      {
+        confirmButtonText: '删除',
+        cancelButtonText: '取消',
+        type: 'warning'
+      }
+    )
+    const result = await deleteAgent(agent.value)
+    agents.value = agents.value.filter(item => item.value !== agent.value)
+    if (selectedAgent.value === agent.value) {
+      selectedAgent.value = agents.value[0]?.value || ''
+    }
+    showAgentDropdown.value = false
+    ElMessage.success(result.message)
+  } catch (error) {
+    if (error === 'cancel' || error === 'close') {
+      return
+    }
+    ElMessage.error(error instanceof Error ? error.message : 'Agent 删除失败')
+  } finally {
+    deletingAgentId.value = null
+  }
+}
+
 function sendMessage() {
   const text = inputText.value.trim()
   if (!text) return
@@ -284,7 +333,7 @@ watch(
 )
 
 const modelLabel = computed(() => models.find(m => m.value === selectedModel.value)?.label ?? '')
-const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.value)?.label ?? '')
+const agentLabel = computed(() => agents.value.find(a => a.value === selectedAgent.value)?.label ?? '')
 </script>
 
 <template>
@@ -532,7 +581,9 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
                   :key="a.value"
                   class="flex w-full items-center px-3 py-2 text-xs transition hover:bg-blue-50"
                   :class="selectedAgent === a.value ? 'text-blue-600 font-medium bg-blue-50' : 'text-gray-600'"
+                  :title="`右键删除 ${a.label}`"
                   @click.stop="selectAgent(a.value)"
+                  @contextmenu.stop.prevent="handleDeleteAgent(a)"
                 >
                   {{ a.label }}
                 </button>

@@ -7,22 +7,20 @@ import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.response.ResponseBody;
 import org.microsoft.qintelipass.services.RedisService;
 import org.microsoft.qintelipass.services.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Map;
 
 @Slf4j
+@Service
 public class MobileCodeLoginStrategy implements ILoginStrategy {
-
-    /** 测试用万能验证码，Redis 中无验证码时允许此固定码登录 */
-    private static final String TEST_CODE = "123456";
-
-    @Autowired
-    private UserService userService;
+    private final UserService userService;
     private final RedisService redisService;
-    public MobileCodeLoginStrategy(RedisService redisService) {
+
+    public MobileCodeLoginStrategy(RedisService redisService, UserService userService) {
         this.redisService = redisService;
+        this.userService = userService;
     }
 
     public boolean validate(String phone, String smsCode) {
@@ -31,67 +29,40 @@ public class MobileCodeLoginStrategy implements ILoginStrategy {
 
     @Override
     public String getType() {
-        return "mobile";
+        return "MOBILE_CODE";
     }
 
     @Override
-    public ResponseBody authenticate(Map<String, Object> params) {
-        String phone = (String) params.get("phone");
-        String smsCode = (String) params.get("smsCode");
-        log.info("SMS login request received.");
+    public ResponseBody<User> authenticate(Map<String, Object> params) {
+        String phone = params == null ? null : (String) params.get("mobile");
+        String smsCode = params == null ? null : (String) params.get("smsCode");
         if (!StringUtils.hasText(smsCode) || !StringUtils.hasText(phone)){
-            return ResponseBody
-                    .builder()
-                    .success(false)
-                    .message("smsCode or phone number could not be NULL.")
-                    .build();
+            return failure("手机号和验证码不能为空");
         }
         if (this.validate(phone, smsCode)){
-            return ResponseBody
-                    .<User>builder()
-                    .success(false)
-                    .message("Invalid smsCode or phone.")
-                    .build();
+            return failure("手机号或验证码格式错误");
         }
-        
+
         User user = userService.getUserByPhone(phone);
-        if (user != null && UserStatus.CANCELLED.equals(user.getStatus())) {
-            return ResponseBody
-                    .<User>builder()
-                    .success(false)
-                    .message("Your account has been deactivated")
-                    .build();
+        if (user == null) {
+            return failure("用户不存在");
+        }
+        if (UserStatus.CANCELLED.equals(user.getStatus())) {
+            return failure("该账户已被注销，无法使用");
+        }
+        if (UserStatus.FROZEN.equals(user.getStatus())) {
+            return failure("该账户已被冻结，无法使用");
         }
 
-        // 验证码校验：优先从 Redis 取真实验证码；若无，允许测试码登录
         String targetSmsCode = (String) redisService.getValue(phone);
-
-        boolean codeMatched = false;
-        if (targetSmsCode != null) {
-            codeMatched = targetSmsCode.equals(smsCode);
-        } else {
-            // Redis 中没有存储的验证码时，允许 TEST_CODE 作为万能验证码
-            codeMatched = TEST_CODE.equals(smsCode);
-            if (codeMatched) {
-                log.info("Using test code for phone: {}", phone);
-            }
+        if (targetSmsCode == null || !targetSmsCode.equals(smsCode)) {
+            return failure("验证码错误或已失效");
         }
+        redisService.deleteValue(phone);
+        return ResponseBody.<User>builder().success(true).message("登录成功").payload(user).build();
+    }
 
-        if (codeMatched) {
-            if (user != null) {
-                return ResponseBody.builder().success(true).payload(Map.of(
-                    "id", String.valueOf(user.getId()),
-                    "name", user.getName(),
-                    "phone", user.getPhone(),
-                    "status", user.getStatus().name()
-                )).build();
-            }
-            return ResponseBody.builder().success(true).payload("Login Successful.").build();
-        }
-        return ResponseBody
-                .<User>builder()
-                .success(false)
-                .message("Wrong smsCode.")
-                .build();
+    private ResponseBody<User> failure(String message) {
+        return ResponseBody.<User>builder().success(false).message(message).build();
     }
 }

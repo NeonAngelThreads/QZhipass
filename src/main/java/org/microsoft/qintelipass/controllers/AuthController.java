@@ -1,269 +1,157 @@
 package org.microsoft.qintelipass.controllers;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
-import lombok.extern.slf4j.Slf4j;
-import org.microsoft.qintelipass.CredentialManager;
 import org.microsoft.qintelipass.ILoginStrategy;
 import org.microsoft.qintelipass.IRegisterable;
 import org.microsoft.qintelipass.LoginStrategyFactory;
 import org.microsoft.qintelipass.dtos.UserDTO;
+import org.microsoft.qintelipass.enums.UserRole;
+import org.microsoft.qintelipass.exceptions.BadRequestException;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.request.LoginRequest;
 import org.microsoft.qintelipass.request.RegisterRequest;
+import org.microsoft.qintelipass.response.ApiResponse;
 import org.microsoft.qintelipass.response.ConversationResponse;
 import org.microsoft.qintelipass.response.ResponseBody;
-import org.microsoft.qintelipass.services.AuthTokenService;
 import org.microsoft.qintelipass.services.ConversationService;
 import org.microsoft.qintelipass.services.SmsServiceImpl;
 import org.microsoft.qintelipass.services.UserDetailsServiceImpl;
 import org.microsoft.qintelipass.util.JwtUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 
-@Slf4j
 @RestController
-@RequestMapping("api/v1/auth/portal")
+@RequestMapping("/api/v1/auth/portal")
 public class AuthController {
-    private final LoginStrategyFactory factory;
+    private static final String ACCESS_TOKEN_COOKIE = "access_token";
+    private static final Pattern MOBILE_PATTERN = Pattern.compile("^1[3-9]\\d{9}$");
+
+    private final LoginStrategyFactory strategyFactory;
     private final SmsServiceImpl smsService;
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
-    private final CredentialManager credentialManager;
-    private static final String COOKIE_ROOT = "/";
-    @Autowired
-    private IRegisterable registerService;
+    private final IRegisterable registerService;
     private final ConversationService conversationService;
 
-    @Autowired
-    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager, ConversationService conversationService) {
-        this.factory = factory;
+    public AuthController(
+            LoginStrategyFactory strategyFactory,
+            SmsServiceImpl smsService,
+            JwtUtil jwtUtil,
+            UserDetailsServiceImpl userDetailsService,
+            IRegisterable registerService,
+            ConversationService conversationService
+    ) {
+        this.strategyFactory = strategyFactory;
         this.smsService = smsService;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
-        this.credentialManager = credentialManager;
+        this.registerService = registerService;
         this.conversationService = conversationService;
     }
 
-    @CrossOrigin
     @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest formData, HttpServletResponse httpResponse) {
-        log.info("User response: {}", formData);
-        try {
-            String loginType = formData.getLoginType();
-            Map<String, Object> params = formData.getCredential();
-            ILoginStrategy strategy = factory.getStrategy(loginType);
-            ResponseBody<User> response = strategy.authenticate(params);
-            User user = response.getPayload();
-            if (response.isSuccess() && user != null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(user.getName());
-                String token = jwtUtil.generateToken(userDetails);
-                ResponseCookie auth = ResponseCookie.from("access_token", token)
-                        .httpOnly(true)
-                        .sameSite("Lax")
-                        .path(COOKIE_ROOT)
-                        .maxAge(Duration.ofDays(7))
-                        .build();
-                httpResponse.addHeader(HttpHeaders.SET_COOKIE, auth.toString());
-                ConversationResponse conversation = conversationService.createInitialConversation(user.getId());
-
-                return ResponseEntity.ok(Map.of(
-                        "success", true,
-                        "data", UserDTO.fromUser(user),
-                        "token", token,
-                        "conversation", conversation,
-                        "initialConversationId", conversation.id()
-                ));
-            }
-            return ResponseEntity.badRequest().body(response);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+    public ResponseEntity<ApiResponse<Map<String, Object>>> login(
+            @RequestBody LoginRequest request,
+            HttpServletResponse servletResponse
+    ) {
+        if (request == null || !StringUtils.hasText(request.getLoginType()) || request.getCredential() == null) {
+            throw new BadRequestException("登录方式和登录凭据不能为空");
         }
+
+        ILoginStrategy strategy = strategyFactory.getStrategy(request.getLoginType().trim());
+        ResponseBody<User> authentication = strategy.authenticate(request.getCredential());
+        if (!authentication.isSuccess() || authentication.getPayload() == null) {
+            String message = StringUtils.hasText(authentication.getMessage())
+                    ? authentication.getMessage()
+                    : "账号或密码错误";
+            return ResponseEntity
+                    .status(HttpStatus.UNAUTHORIZED)
+                    .body(new ApiResponse<>(false, message, null));
+        }
+
+        User user = authentication.getPayload();
+        UserDetails userDetails = userDetailsService.loadUserByUsername(user.getName());
+        String accessToken = jwtUtil.generateToken(userDetails, user.getId());
+        servletResponse.addHeader(HttpHeaders.SET_COOKIE, accessTokenCookie(accessToken).toString());
+
+        ConversationResponse conversation = conversationService.createInitialConversation(user.getId());
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("user_id", user.getId());
+        data.put("access_token", accessToken);
+        data.put("role", effectiveRole(user).name());
+        data.put("user", UserDTO.fromUser(user));
+        data.put("initialConversationId", conversation.id());
+        data.put("conversation", conversation);
+        return ResponseEntity.ok(ApiResponse.ok("登录成功", data));
     }
 
     @PostMapping("/send_code")
-    public ResponseEntity<?> sendCode(@RequestBody Map<String, String> payload) {
-        if (payload.get("phone") != null) {
-            String code = smsService.sendSmsCode(payload.get("phone"));
-            log.info("Sent sms code: {}", code);
+    public ApiResponse<Void> sendCode(@RequestBody Map<String, String> payload) {
+        String phone = payload == null ? null : payload.get("phone");
+        if (!StringUtils.hasText(phone) || !MOBILE_PATTERN.matcher(phone.trim()).matches()) {
+            throw new BadRequestException("请输入有效手机号");
         }
-        return ResponseEntity
-                .badRequest()
-                .body(ResponseBody
-                        .builder()
-                        .success(false)
-                        .message("phone number should not be null")
-                );
+        smsService.sendSmsCode(phone.trim());
+        return ApiResponse.ok("验证码已发送", null);
     }
 
     @DeleteMapping("/logout")
-    public ResponseEntity<?> logoutUser(HttpServletResponse httpResponse, @RequestHeader("Authorization") String token) {
-        if (!credentialManager.checkIfLogin(token)) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not Logged in.");
-        }
-        Cookie userIdCookie = new Cookie("user_id", "");
-        Cookie auth = new Cookie("access_token", "");
-        userIdCookie.setPath("/");
-        userIdCookie.setMaxAge(0);
-        auth.setMaxAge(0);
-        auth.setPath("/");
-        httpResponse.addCookie(userIdCookie);
-        httpResponse.addCookie(auth);
-
-        return ResponseEntity.ok(Map.of("success", true, "message", "OK"));
+    public ApiResponse<Void> logout(HttpServletResponse servletResponse) {
+        ResponseCookie expiredCookie = ResponseCookie.from(ACCESS_TOKEN_COOKIE, "")
+                .httpOnly(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(Duration.ZERO)
+                .build();
+        servletResponse.addHeader(HttpHeaders.SET_COOKIE, expiredCookie.toString());
+        return ApiResponse.ok("已退出登录", null);
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@RequestBody RegisterRequest payload) {
-        User registered;
-        try {
-            registered = registerService.register(payload, payload.getPassword());
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "success", false,
-                            "message", e.getMessage()
-                    ));
-        }
-        Map<String, Object> responseBody = new HashMap<>();
-
-        if (registered != null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(registered.getName());
-            String token = jwtUtil.generateToken(userDetails);
-            responseBody.put("success", true);
-            responseBody.put("data", registered);
-            responseBody.put("token", token);
-
-            return ResponseEntity.created(ServletUriComponentsBuilder
-                            .fromCurrentRequest()
-                            .path("/{id}")
-                            .buildAndExpand(registered.getId())
-                            .toUri())
-                    .body(responseBody);
-        } else {
-            return ResponseEntity
-                    .badRequest()
-                    .body(Map.of(
-                            "success", false,
-                            "message", "Information is not completed, cloud not register."
-                    ));
-
-        }
-    }
-}
-@Slf4j
-@RequestMapping("api/v2/portal")
-// Portal login entry. Successful login issues accessToken and creates an initial conversation.
-class AuthControllerV2 {
-    private final LoginStrategyFactory factory;
-    private final AuthTokenService authTokenService;
-    private final ConversationService conversationService;
-
-    public AuthControllerV2(
-            LoginStrategyFactory factory,
-            AuthTokenService authTokenService,
-            ConversationService conversationService
-    ) {
-        this.factory = factory;
-        this.authTokenService = authTokenService;
-        this.conversationService = conversationService;
-    }
-
-    @PostMapping("/login")
-    public ResponseEntity<?> login(@RequestBody LoginRequest formData, HttpServletResponse servletResponse) {
-        String loginType = formData.getLoginType();
-        Map<String, Object> params = formData.effectiveParams();
-        ILoginStrategy strategy = factory.getStrategy(loginType);
-        log.info("Login request received. loginType={}", loginType);
-        ResponseBody response = strategy.authenticate(params);
-        log.info("Authenticator completed. success={}", response.isSuccess());
-        if (response.isSuccess()) {
-            Long userId = extractUserId(response, params);
-            String accessToken = authTokenService.issueToken(userId);
-            ConversationResponse conversation = conversationService.createInitialConversation(userId);
-            response.setPayload(buildLoginData(userId, accessToken, conversation));
-
-            ResponseCookie accessTokenCookie = ResponseCookie.from("access_token", accessToken)
-                    .httpOnly(true)
-                    .sameSite("Lax")
-                    .path("/")
-                    .maxAge(Duration.ofHours(8))
-                    .build();
-            servletResponse.addHeader(HttpHeaders.SET_COOKIE, accessTokenCookie.toString());
-            return ResponseEntity.ok(response);
-        }
-        return ResponseEntity.badRequest().body(response);
-    }
-
-    // Prefer the numeric id from the MySQL user table. Phone fallback is kept only for local SMS demos.
-    private Long extractUserId(ResponseBody response, Map<String, Object> params) {
-        if (response.getPayload() instanceof Map<?, ?> data) {
-            Long id = readLong(data.get("id"));
-            if (id != null) {
-                return id;
-            }
-            Long userId = readLong(data.get("user_id"));
-            if (userId != null) {
-                return userId;
-            }
-            Long camelUserId = readLong(data.get("userId"));
-            if (camelUserId != null) {
-                return camelUserId;
-            }
+    public ResponseEntity<ApiResponse<Map<String, Object>>> register(@RequestBody RegisterRequest request) {
+        User registered = registerService.register(request, request.getPassword());
+        if (registered == null) {
+            throw new BadRequestException("注册信息不完整");
         }
 
-        Long mobile = readLong(params.get("mobile"));
-        if (mobile != null) {
-            return mobile;
-        }
-        Long phoneNumber = readLong(params.get("phone_number"));
-        if (phoneNumber != null) {
-            return phoneNumber;
-        }
-        Long phone = readLong(params.get("phone"));
-        if (phone != null) {
-            return phone;
-        }
-        throw new IllegalArgumentException("Login succeeded but numeric user id could not be resolved.");
-    }
-
-    private Long readLong(Object value) {
-        if (value instanceof Number number) {
-            return number.longValue();
-        }
-        if (value instanceof String text && StringUtils.hasText(text)) {
-            try {
-                return Long.parseLong(text.trim());
-            } catch (NumberFormatException exception) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    private Map<String, Object> buildLoginData(
-            Long userId,
-            String accessToken,
-            ConversationResponse conversation
-    ) {
+        UserDetails userDetails = userDetailsService.loadUserByUsername(registered.getName());
+        String token = jwtUtil.generateToken(userDetails, registered.getId());
         Map<String, Object> data = new LinkedHashMap<>();
-        data.put("user_id", userId);
-        data.put("access_token", accessToken);
-        data.put("initialConversationId", conversation.id());
-        data.put("conversation", conversation);
-        return data;
+        data.put("user", UserDTO.fromUser(registered));
+        data.put("access_token", token);
+        return ResponseEntity.created(ServletUriComponentsBuilder
+                        .fromCurrentRequest()
+                        .path("/{id}")
+                        .buildAndExpand(registered.getId())
+                        .toUri())
+                .body(ApiResponse.ok("注册成功", data));
+    }
+
+    private ResponseCookie accessTokenCookie(String token) {
+        return ResponseCookie.from(ACCESS_TOKEN_COOKIE, token)
+                .httpOnly(true)
+                .sameSite("Lax")
+                .path("/")
+                .maxAge(Duration.ofDays(1))
+                .build();
+    }
+
+    private UserRole effectiveRole(User user) {
+        return user.getRole() == null ? UserRole.USER : user.getRole();
     }
 }

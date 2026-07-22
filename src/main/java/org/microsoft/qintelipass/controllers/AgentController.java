@@ -1,14 +1,23 @@
 package org.microsoft.qintelipass.controllers;
 
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.UserTokenUsageDTO;
 import org.microsoft.qintelipass.models.AiModelConfig;
+import org.microsoft.qintelipass.response.AgentDeleteCheckResponse;
+import org.microsoft.qintelipass.response.AgentDeleteResponse;
+import org.microsoft.qintelipass.response.ApiResponse;
 import org.microsoft.qintelipass.response.ResponseBody;
 import org.microsoft.qintelipass.security.SecurityUtil;
+import org.microsoft.qintelipass.services.AgentDeletionService;
 import org.microsoft.qintelipass.services.AiModelService;
+import org.microsoft.qintelipass.services.CurrentUserService;
 import org.microsoft.qintelipass.services.TokenUsageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -26,6 +35,12 @@ public class AgentController {
 
     @Autowired
     private AiModelService aiModelService;
+
+    @Autowired
+    private AgentDeletionService agentDeletionService;
+
+    @Autowired
+    private CurrentUserService currentUserService;
 
     @PostMapping("/call")
     public ResponseEntity<ResponseBody<Map<String, Object>>> callAgent(
@@ -76,5 +91,24 @@ public class AgentController {
                 .message("Agent call completed successfully")
                 .payload(result)
                 .build());
+    }
+
+    @GetMapping("/{agentId}/delete-check")
+    public ApiResponse<AgentDeleteCheckResponse> checkDelete(
+            @PathVariable String agentId,
+            HttpServletRequest request
+    ) {
+        Long userId = currentUserService.requireUserId(request);
+        return ApiResponse.ok(agentDeletionService.checkDeletion(userId, agentId));
+    }
+
+    @DeleteMapping("/{agentId}")
+    public ApiResponse<AgentDeleteResponse> deleteAgent(
+            @PathVariable String agentId,
+            HttpServletRequest request
+    ) {
+        Long userId = currentUserService.requireUserId(request);
+        AgentDeleteResponse response = agentDeletionService.delete(userId, agentId);
+        return ApiResponse.ok(response.message(), response);
     }
 }

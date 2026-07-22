@@ -15,7 +15,8 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_conversations_user_id", columnList = "user_id"),
                 @Index(name = "idx_conversations_user_last_message", columnList = "user_id,last_message_at"),
-                @Index(name = "idx_conversations_model_key", columnList = "model_key")
+                @Index(name = "idx_conversations_model_key", columnList = "model_key"),
+                @Index(name = "idx_conversations_agent_id", columnList = "agent_id")
         }
 )
 // 对话归属使用 MySQL 用户表 user.id 的 BIGINT 编号。
@@ -35,6 +36,9 @@ public class Conversation {
 
     @Column(name = "model_key", length = 100)
     private String modelKey;
+
+    @Column(name = "agent_id", length = 80)
+    private String agentId;
 
     @Column(nullable = false, length = 32)
     private String status = STATUS_ACTIVE;

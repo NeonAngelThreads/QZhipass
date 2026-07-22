@@ -1,6 +1,7 @@
 package org.microsoft.qintelipass.dtos;
 
 import lombok.*;
+import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.util.Snowflake;
@@ -17,6 +18,8 @@ public class UserDTO {
     private String phone;
     private String email;
     private UserStatus status = UserStatus.NORMAL;
+    @Builder.Default
+    private UserRole role = UserRole.USER;
     private String name;
     private String department;
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -27,6 +30,7 @@ public class UserDTO {
                 .phone(user.getPhone())
                 .email(user.getEmail())
                 .status(user.getStatus())
+                .role(user.getRole())
                 .name(user.getName())
                 .department(user.getDepartment())
                 .createdAt(user.getCreatedAt())
@@ -39,6 +43,7 @@ public class UserDTO {
         user.setPhone(this.phone);
         user.setEmail(this.email);
         user.setStatus(this.status);
+        user.setRole(this.role);
         user.setName(this.name);
         user.setDepartment(this.department);
         return user;

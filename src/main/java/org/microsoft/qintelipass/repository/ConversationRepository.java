@@ -12,4 +12,8 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     List<Conversation> findByUserIdOrderByLastMessageAtDescUpdatedAtDesc(Long userId, Pageable pageable);
 
     Optional<Conversation> findByIdAndUserId(Long id, Long userId);
+
+    Optional<Conversation> findFirstByAgentIdOrderByCreatedAtAsc(String agentId);
+
+    Optional<Conversation> findFirstByAgentIdAndUserIdOrderByCreatedAtAsc(String agentId, Long userId);
 }

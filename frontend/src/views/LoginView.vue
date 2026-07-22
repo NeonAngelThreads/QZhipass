@@ -4,7 +4,7 @@ import {useRoute, useRouter} from 'vue-router'
 import {ElMessage} from 'element-plus'
 import {Lock, Message, Phone, User} from '@element-plus/icons-vue'
 import BrandLogo from '../components/BrandLogo.vue'
-import {isValidMobile, sendSmsCode} from '../api/auth'
+import {isValidAccount, isValidMobile, sendSmsCode} from '../api/auth'
 import {useAuthStore} from '../stores/auth'
 // 注销用户弹窗处理：检测到 cancelled 错误时弹出注销提示，其他错误抛出交由原逻辑处理
 import {handleLoginError} from '../utils/cancelledUserHandler'
@@ -20,7 +20,7 @@ const countdown = ref(0)
 const smsTimer = ref<number>()
 
 const passwordForm = reactive({
-  mobile: '',
+  account: '',
   password: ''
 })
 
@@ -29,10 +29,10 @@ const smsForm = reactive({
   smsCode: ''
 })
 
-const normalizedPasswordMobile = computed(() => passwordForm.mobile.trim())
+const normalizedPasswordAccount = computed(() => passwordForm.account.trim())
 const normalizedSmsMobile = computed(() => smsForm.mobile.trim())
 const canSubmitPassword = computed(
-  () => isValidMobile(normalizedPasswordMobile.value) && passwordForm.password.length > 0 && !submitting.value
+  () => isValidAccount(normalizedPasswordAccount.value) && passwordForm.password.length > 0 && !submitting.value
 )
 const canSendSms = computed(() => isValidMobile(normalizedSmsMobile.value) && !smsSending.value && countdown.value === 0)
 const canSubmitSms = computed(
@@ -47,13 +47,13 @@ async function redirectAfterLogin() {
 
 async function handlePasswordLogin() {
   if (!canSubmitPassword.value) {
-    ElMessage.warning('请输入有效手机号和密码')
+    ElMessage.warning('请输入有效手机号或邮箱及密码')
     return
   }
 
   submitting.value = true
   try {
-    await authStore.passwordLogin(normalizedPasswordMobile.value, passwordForm.password)
+    await authStore.passwordLogin(normalizedPasswordAccount.value, passwordForm.password)
     await redirectAfterLogin()
   } catch (error) {
     // 先交给注销用户处理器判断，是注销错误则弹窗，否则抛出走原逻辑
@@ -148,7 +148,7 @@ onBeforeUnmount(() => {
         <header class="login-header">
           <BrandLogo tone="dark" size="sm" />
           <h2>登录企智通</h2>
-          <p>使用手机号登录您的账号</p>
+          <p>使用手机号或邮箱登录您的账号</p>
         </header>
 
         <div class="mode-switch" aria-label="登录方式">
@@ -161,15 +161,14 @@ onBeforeUnmount(() => {
         </div>
 
         <el-form v-if="loginMode === 'password'" class="login-form" @submit.prevent="handlePasswordLogin">
-          <label class="field-label" for="password-mobile">手机号</label>
+          <label class="field-label" for="password-account">手机号或邮箱</label>
           <el-input
-            id="password-mobile"
-            v-model="passwordForm.mobile"
-            :prefix-icon="Phone"
+            id="password-account"
+            v-model="passwordForm.account"
+            :prefix-icon="User"
             autocomplete="username"
             clearable
-            maxlength="11"
-            placeholder="请输入手机号"
+            placeholder="请输入手机号或邮箱"
             size="large"
           />
 

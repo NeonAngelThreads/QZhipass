@@ -4,6 +4,7 @@ import HomeView from '../views/HomeView.vue'
 import ChatView from '../views/ChatView.vue'
 import SensitiveWordsView from '../views/SensitiveWordsView.vue'
 import SecurityLogView from '../views/SecurityLogView.vue'
+import {isLoggedIn} from '../api/session'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -42,6 +43,16 @@ const router = createRouter({
       redirect: '/chat'
     }
   ]
+})
+
+router.beforeEach(to => {
+  if (to.name !== 'login' && !isLoggedIn()) {
+    return {name: 'login', query: {redirect: to.fullPath}}
+  }
+  if (to.name === 'login' && isLoggedIn()) {
+    return {name: 'chat'}
+  }
+  return true
 })
 
 export default router

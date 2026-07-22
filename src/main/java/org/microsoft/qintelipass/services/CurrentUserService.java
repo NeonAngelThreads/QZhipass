@@ -3,40 +3,52 @@ package org.microsoft.qintelipass.services;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.microsoft.qintelipass.exceptions.UnauthorizedException;
+import org.microsoft.qintelipass.models.User;
+import org.microsoft.qintelipass.util.JwtUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.Optional;
 
 @Service
-// Reads accessToken from headers or cookie, then resolves the current MySQL user id from Redis.
 public class CurrentUserService {
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
 
-    private final AuthTokenService authTokenService;
+    private final JwtUtil jwtUtil;
+    private final UserService userService;
 
-    public CurrentUserService(AuthTokenService authTokenService) {
-        this.authTokenService = authTokenService;
+    public CurrentUserService(JwtUtil jwtUtil, UserService userService) {
+        this.jwtUtil = jwtUtil;
+        this.userService = userService;
     }
 
-    // All conversation APIs use this numeric id as their trusted current user identity.
     public Long requireUserId(HttpServletRequest request) {
         String token = resolveToken(request)
-                .orElseThrow(() -> new UnauthorizedException("Missing access token."));
-        return authTokenService.resolveUserId(token)
-                .orElseThrow(() -> new UnauthorizedException("Invalid or expired access token."));
+                .orElseThrow(() -> new UnauthorizedException("未登录或登录已失效"));
+        try {
+            if (!jwtUtil.validateToken(token)) {
+                throw new UnauthorizedException("未登录或登录已失效");
+            }
+            Long userId = jwtUtil.extractUserId(token);
+            if (userId != null && userService.getUserById(userId) != null) {
+                return userId;
+            }
+            User user = userService.findByUsername(jwtUtil.extractUsername(token));
+            if (user != null) {
+                return user.getId();
+            }
+        } catch (UnauthorizedException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new UnauthorizedException("未登录或登录已失效");
+        }
+        throw new UnauthorizedException("未登录或登录已失效");
     }
 
-    // Supports Authorization Bearer, X-Access-Token, and same-site access_token cookie.
     private Optional<String> resolveToken(HttpServletRequest request) {
         String authorization = request.getHeader("Authorization");
-        if (StringUtils.hasText(authorization) && authorization.startsWith("Bearer ")) {
-            return Optional.of(authorization.substring(7).trim());
-        }
-
-        String tokenHeader = request.getHeader("X-Access-Token");
-        if (StringUtils.hasText(tokenHeader)) {
-            return Optional.of(tokenHeader.trim());
+        if (StringUtils.hasText(authorization) && authorization.startsWith(JwtUtil.BEARER_PREFIX)) {
+            return Optional.of(authorization.substring(JwtUtil.BEARER_PREFIX.length()).trim());
         }
 
         Cookie[] cookies = request.getCookies();
@@ -47,7 +59,6 @@ public class CurrentUserService {
                 }
             }
         }
-
         return Optional.empty();
     }
 }
