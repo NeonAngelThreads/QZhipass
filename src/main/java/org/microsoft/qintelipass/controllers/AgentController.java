@@ -1,31 +1,127 @@
 package org.microsoft.qintelipass.controllers;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.UserTokenUsageDTO;
 import org.microsoft.qintelipass.models.AiModelConfig;
+import org.microsoft.qintelipass.request.CreateAgentRequest;
+import org.microsoft.qintelipass.response.AgentDeleteCheckResponse;
+import org.microsoft.qintelipass.response.AgentDeleteResultResponse;
+import org.microsoft.qintelipass.response.AgentLibraryResponse;
+import org.microsoft.qintelipass.response.AgentResponse;
+import org.microsoft.qintelipass.response.AgentSummaryResponse;
+import org.microsoft.qintelipass.response.ApiResponse;
 import org.microsoft.qintelipass.response.ResponseBody;
 import org.microsoft.qintelipass.security.SecurityUtil;
+import org.microsoft.qintelipass.services.AgentManagementService;
 import org.microsoft.qintelipass.services.AiModelService;
+import org.microsoft.qintelipass.services.CurrentUserService;
 import org.microsoft.qintelipass.services.TokenUsageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 @Slf4j
 @RestController
-@RequestMapping("/api/v1/agent")
+@RequestMapping({"/api/v1/agent", "/api/v1/agents", "/api/agents"})
 public class AgentController {
     @Autowired
     private TokenUsageService tokenUsageService;
 
     @Autowired
     private AiModelService aiModelService;
+
+    private final AgentManagementService agentManagementService;
+    private final CurrentUserService currentUserService;
+
+    public AgentController(
+            AgentManagementService agentManagementService,
+            CurrentUserService currentUserService
+    ) {
+        this.agentManagementService = agentManagementService;
+        this.currentUserService = currentUserService;
+    }
+
+    @PostMapping
+    public ApiResponse<AgentResponse> create(
+            @Valid @RequestBody CreateAgentRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = currentUserService.requireUserId(httpRequest);
+        return ApiResponse.ok("创建成功", agentManagementService.create(userId, request));
+    }
+
+    @GetMapping
+    public ApiResponse<List<AgentSummaryResponse>> list(
+            @RequestParam(value = "q", required = false) String keyword,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.ok(agentManagementService.listVisible(
+                currentUserService.requireUserId(request), keyword));
+    }
+
+    @GetMapping("/mine")
+    public ApiResponse<List<AgentResponse>> listPersonal(HttpServletRequest request) {
+        return ApiResponse.ok(agentManagementService.listPersonal(
+                currentUserService.requireUserId(request)));
+    }
+
+    @GetMapping("/catalog")
+    public ApiResponse<List<AgentSummaryResponse>> catalog(
+            @RequestParam(value = "q", required = false) String keyword,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.ok(agentManagementService.listCatalog(
+                currentUserService.requireUserId(request), keyword));
+    }
+
+    @GetMapping("/presets")
+    public ApiResponse<List<AgentResponse>> listPresets() {
+        return ApiResponse.ok(agentManagementService.listPresets());
+    }
+
+    @GetMapping("/count")
+    public ApiResponse<Map<String, Object>> count(HttpServletRequest request) {
+        long count = agentManagementService.count(currentUserService.requireUserId(request));
+        return ApiResponse.ok(Map.of(
+                "count", count,
+                "maxLimit", AgentManagementService.MAX_PERSONAL_AGENTS
+        ));
+    }
+
+    @PostMapping("/{agentId}/library")
+    public ApiResponse<AgentLibraryResponse> addToLibrary(
+            @PathVariable Long agentId,
+            HttpServletRequest request
+    ) {
+        AgentLibraryResponse result = agentManagementService.addToLibrary(
+                currentUserService.requireUserId(request), agentId);
+        return ApiResponse.ok(result.alreadyAdded() ? "Agent已在用户库中" : "Agent添加成功", result);
+    }
+
+    @GetMapping({"/{agentId}/delete-check", "/{agentId}/delete-confirmation"})
+    public ApiResponse<AgentDeleteCheckResponse> deleteCheck(
+            @PathVariable Long agentId,
+            HttpServletRequest request
+    ) {
+        return ApiResponse.ok(agentManagementService.getDeleteCheck(
+                currentUserService.requireUserId(request), agentId));
+    }
+
+    @DeleteMapping("/{agentId}")
+    public ApiResponse<AgentDeleteResultResponse> delete(
+            @PathVariable Long agentId,
+            HttpServletRequest request
+    ) {
+        AgentDeleteResultResponse result = agentManagementService.delete(
+                currentUserService.requireUserId(request), agentId);
+        return ApiResponse.ok(result.alreadyDeleted() ? "Agent已删除或移除" : "删除成功", result);
+    }
 
     @PostMapping("/call")
     public ResponseEntity<ResponseBody<Map<String, Object>>> callAgent(

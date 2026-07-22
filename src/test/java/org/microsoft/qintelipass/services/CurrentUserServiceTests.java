@@ -5,6 +5,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.microsoft.qintelipass.exceptions.UnauthorizedException;
+import org.microsoft.qintelipass.util.JwtUtil;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -20,11 +21,17 @@ class CurrentUserServiceTests {
     private AuthTokenService authTokenService;
 
     @Mock
+    private JwtUtil jwtUtil;
+
+    @Mock
+    private UserService userService;
+
+    @Mock
     private HttpServletRequest request;
 
     @Test
     void rejectsMissingAccessToken() {
-        CurrentUserService service = new CurrentUserService(authTokenService);
+        CurrentUserService service = createService();
         when(request.getHeader("Authorization")).thenReturn(null);
         when(request.getHeader("X-Access-Token")).thenReturn(null);
         when(request.getCookies()).thenReturn(null);
@@ -34,7 +41,7 @@ class CurrentUserServiceTests {
 
     @Test
     void resolvesBearerTokenToCurrentUser() {
-        CurrentUserService service = new CurrentUserService(authTokenService);
+        CurrentUserService service = createService();
         when(request.getHeader("Authorization")).thenReturn("Bearer token-1");
         when(authTokenService.resolveUserId("token-1")).thenReturn(Optional.of(1001L));
 
@@ -43,7 +50,7 @@ class CurrentUserServiceTests {
 
     @Test
     void resolvesCookieTokenToCurrentUser() {
-        CurrentUserService service = new CurrentUserService(authTokenService);
+        CurrentUserService service = createService();
         when(request.getHeader("Authorization")).thenReturn(null);
         when(request.getHeader("X-Access-Token")).thenReturn(null);
         when(request.getCookies()).thenReturn(new Cookie[]{new Cookie("access_token", "token-2")});
@@ -54,10 +61,14 @@ class CurrentUserServiceTests {
 
     @Test
     void rejectsInvalidAccessToken() {
-        CurrentUserService service = new CurrentUserService(authTokenService);
+        CurrentUserService service = createService();
         when(request.getHeader("Authorization")).thenReturn("Bearer token-3");
         when(authTokenService.resolveUserId("token-3")).thenReturn(Optional.empty());
 
         assertThrows(UnauthorizedException.class, () -> service.requireUserId(request));
+    }
+
+    private CurrentUserService createService() {
+        return new CurrentUserService(authTokenService, jwtUtil, userService);
     }
 }

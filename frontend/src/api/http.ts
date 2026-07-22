@@ -1,54 +1,53 @@
 import axios from 'axios'
-import { clearLoginInfo } from './session'
+import { clearLoginInfo, readLoginInfo } from './session'
+
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    skipAuthRedirect?: boolean
+  }
+}
+
+const apiBaseURL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const http = axios.create({
-  baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
+  baseURL: apiBaseURL,
   timeout: 10000,
   withCredentials: true
 })
 
-export function getErrorMessage(error: unknown, fallback: string) {
-  if (axios.isAxiosError(error)) {
-    const responseData = error.response?.data
-
-    if (responseData && typeof responseData === 'object' && 'message' in responseData) {
-      const message = responseData.message
-
-      if (typeof message === 'string' && message.trim()) {
-        return message
-      }
-    }
-
-    if (typeof responseData === 'string' && responseData.trim()) {
-      return responseData
-    }
-
-    if (error.message) {
-      return error.message
-    }
+http.interceptors.request.use(config => {
+  if (apiBaseURL.replace(/\/+$/, '').endsWith('/api') && config.url?.startsWith('/api/')) {
+    config.url = config.url.slice('/api'.length)
   }
-
-  if (error instanceof Error && error.message) {
-    return error.message
+  const token = readLoginInfo()?.accessToken
+  if (token && !config.headers.Authorization) {
+    config.headers.Authorization = `Bearer ${token}`
   }
-
-  return fallback
-}
+  return config
+})
 
 http.interceptors.response.use(
   response => response,
   error => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
+    if (axios.isAxiosError(error) && !error.config?.skipAuthRedirect && error.response?.status === 401) {
       clearLoginInfo()
-
-      // DEV: 临时禁用登录跳转
-      // if (window.location.pathname !== '/login') {
-      //   window.location.assign('/login')
-      // }
+      if (window.location.pathname !== '/login') window.location.assign('/login')
     }
-
     return Promise.reject(error)
   }
 )
+
+export function getErrorMessage(error: unknown, fallback: string) {
+  if (axios.isAxiosError(error)) {
+    const payload = error.response?.data
+    if (payload && typeof payload === 'object' && 'message' in payload) {
+      const message = payload.message
+      if (typeof message === 'string' && message.trim()) return message
+    }
+    if (typeof payload === 'string' && payload.trim()) return payload
+    if (error.message) return error.message
+  }
+  return error instanceof Error && error.message ? error.message : fallback
+}
 
 export default http

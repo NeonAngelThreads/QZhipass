@@ -1,3 +1,0 @@
-The following files have been resolved:
-   org.springframework.ai:spring-ai-openai:jar:1.0.0:compile -- module spring.ai.openai (auto)
-
