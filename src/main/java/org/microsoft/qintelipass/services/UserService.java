@@ -9,6 +9,7 @@ import java.util.List;
 public interface UserService {
     User getUserById(Long userId);
     User getUserByPhone(String phone);
+    User getUserByEmail(String email);
     User getUserByWechatOpenId(String wechatOpenId);
     List<User> getAllUsers();
     void saveUser(User user);
