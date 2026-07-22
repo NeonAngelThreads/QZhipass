@@ -3,9 +3,11 @@ package org.microsoft.qintelipass.controllers;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
+import org.microsoft.qintelipass.CredentialManager;
 import org.microsoft.qintelipass.ILoginStrategy;
 import org.microsoft.qintelipass.IRegisterable;
 import org.microsoft.qintelipass.LoginStrategyFactory;
+import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.request.LoginRequest;
 import org.microsoft.qintelipass.request.RegisterRequest;
@@ -39,32 +41,35 @@ public class AuthController {
     private final SmsServiceImpl smsService;
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
+    private final CredentialManager credentialManager;
     private static final String COOKIE_ROOT = "/";
     @Autowired
     private IRegisterable registerService;
     private final ConversationService conversationService;
 
     @Autowired
-    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, ConversationService conversationService) {
+    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager, ConversationService conversationService) {
         this.factory = factory;
         this.smsService = smsService;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
+        this.credentialManager = credentialManager;
         this.conversationService = conversationService;
     }
 
     @CrossOrigin
     @PostMapping("/login")
     public ResponseEntity<?> login(@RequestBody LoginRequest formData, HttpServletResponse httpResponse) {
+        log.info("User response: {}", formData);
         try {
             String loginType = formData.getLoginType();
-            Map<String, Object> params = formData.effectiveParams();
+            Map<String, Object> params = formData.getCredential();
             ILoginStrategy strategy = factory.getStrategy(loginType);
             ResponseBody<User> response = strategy.authenticate(params);
             User user = response.getPayload();
             if (response.isSuccess() && user != null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(user.getName());
-                String token = jwtUtil.generateToken(userDetails, user.getId());
+                String token = jwtUtil.generateToken(userDetails);
                 ResponseCookie auth = ResponseCookie.from("access_token", token)
                         .httpOnly(true)
                         .sameSite("Lax")
@@ -74,19 +79,9 @@ public class AuthController {
                 httpResponse.addHeader(HttpHeaders.SET_COOKIE, auth.toString());
                 ConversationResponse conversation = conversationService.createInitialConversation(user.getId());
 
-                Map<String, Object> data = new LinkedHashMap<>();
-                data.put("id", user.getId());
-                data.put("user_id", user.getId());
-                data.put("userId", user.getId());
-                data.put("access_token", token);
-                data.put("accessToken", token);
-                data.put("role", "USER");
-                data.put("conversation", conversation);
-                data.put("initialConversationId", conversation.id());
-
                 return ResponseEntity.ok(Map.of(
                         "success", true,
-                        "data", data,
+                        "data", UserDTO.fromUser(user),
                         "token", token,
                         "conversation", conversation,
                         "initialConversationId", conversation.id()
@@ -100,22 +95,24 @@ public class AuthController {
 
     @PostMapping("/send_code")
     public ResponseEntity<?> sendCode(@RequestBody Map<String, String> payload) {
-        String phone = payload == null ? null : payload.get("phone");
-        if (!StringUtils.hasText(phone) && payload != null) {
-            phone = payload.get("Phone");
+        if (payload.get("phone") != null) {
+            String code = smsService.sendSmsCode(payload.get("phone"));
+            log.info("Sent sms code: {}", code);
         }
-        if (!StringUtils.hasText(phone)) {
-            return ResponseEntity.badRequest().body(Map.of(
-                    "success", false,
-                    "message", "phone number should not be null"
-            ));
-        }
-        smsService.sendSmsCode(phone.trim());
-        return ResponseEntity.ok(Map.of("success", true, "message", "验证码已发送"));
+        return ResponseEntity
+                .badRequest()
+                .body(ResponseBody
+                        .builder()
+                        .success(false)
+                        .message("phone number should not be null")
+                );
     }
 
     @DeleteMapping("/logout")
-    public ResponseEntity<?> logoutUser(HttpServletResponse httpResponse) {
+    public ResponseEntity<?> logoutUser(HttpServletResponse httpResponse, @RequestHeader("Authorization") String token) {
+        if (!credentialManager.checkIfLogin(token)) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Not Logged in.");
+        }
         Cookie userIdCookie = new Cookie("user_id", "");
         Cookie auth = new Cookie("access_token", "");
         userIdCookie.setPath("/");
@@ -168,7 +165,6 @@ public class AuthController {
     }
 }
 @Slf4j
-@RestController
 @RequestMapping("api/v2/portal")
 // Portal login entry. Successful login issues accessToken and creates an initial conversation.
 class AuthControllerV2 {

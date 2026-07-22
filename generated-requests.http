@@ -1,0 +1,35 @@
+###
+POST http://1.14.203.243/api/v1/auth/portal/login
+Content-Type: application/json
+
+{
+  "loginType": "MOBILE_PWD",
+  "credential": {
+    "mobile": "13417596627",
+    "password": "123abc"
+  }
+}
+
+
+###
+POST http://1.14.203.243/api/v1/auth/portal/register
+Content-Type: application/json
+
+{
+  "email": "13417596627@qq.com",
+  "name": "sssss",
+  "password": "123abc",
+  "department": "snn",
+  "phone": "13417596627",
+  "wechat" : "dd"
+}
+
+
+###
+POST http://localhost:7510/api/v1/agent/call
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzdHJpbmciLCJpYXQiOjE3ODMwMTUyMTksImV4cCI6MTc4MzEwMTYxOX0.QCL8foVi6Gkr7OGLAacSNYDJogggX7ePnhoLDurJAGA
+
+###
+DELETE http://localhost:7510/api/v1/auth/portal/logout
+Authorization: Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJzdHJpbmciLCJpYXQiOjE3ODMwMTUyMTksImV4cCI6MTc4MzEwMTYxOX0.QCL8foVi6Gkr7OGLAacSNYDJogggX7ePnhoLDurJAGA
+

@@ -11,9 +11,9 @@ import java.util.Map;
 public class LoginStrategyFactory {
     private final Map<String, ILoginStrategy> strategyMap;
     private static final Map<String, String> LOGIN_TYPE_ALIASES = Map.of(
-            "MOBILE_CODE", "mobile",
-            "SMS_LOGIN", "mobile",
-            "smsLogin", "mobile"
+            "MOBILE_CODE", "smsLogin",
+            "SMS_LOGIN", "smsLogin",
+            "smsLogin", "smsLogin"
     );
 
     public LoginStrategyFactory(Map<String, ILoginStrategy> strategyMap) {

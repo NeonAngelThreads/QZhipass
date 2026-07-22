@@ -3,8 +3,6 @@ package org.microsoft.qintelipass.services;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.microsoft.qintelipass.exceptions.UnauthorizedException;
-import org.microsoft.qintelipass.models.User;
-import org.microsoft.qintelipass.util.JwtUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -16,13 +14,9 @@ public class CurrentUserService {
     private static final String ACCESS_TOKEN_COOKIE = "access_token";
 
     private final AuthTokenService authTokenService;
-    private final JwtUtil jwtUtil;
-    private final UserService userService;
 
-    public CurrentUserService(AuthTokenService authTokenService, JwtUtil jwtUtil, UserService userService) {
+    public CurrentUserService(AuthTokenService authTokenService) {
         this.authTokenService = authTokenService;
-        this.jwtUtil = jwtUtil;
-        this.userService = userService;
     }
 
     // All conversation APIs use this numeric id as their trusted current user identity.
@@ -30,24 +24,7 @@ public class CurrentUserService {
         String token = resolveToken(request)
                 .orElseThrow(() -> new UnauthorizedException("Missing access token."));
         return authTokenService.resolveUserId(token)
-                .or(() -> resolveJwtUserId(token))
                 .orElseThrow(() -> new UnauthorizedException("Invalid or expired access token."));
-    }
-
-    private Optional<Long> resolveJwtUserId(String token) {
-        try {
-            if (!jwtUtil.validateToken(token)) {
-                return Optional.empty();
-            }
-            Long userId = jwtUtil.extractUserId(token);
-            if (userId != null) {
-                return Optional.of(userId);
-            }
-            User user = userService.findByUsername(jwtUtil.extractUsername(token));
-            return user == null ? Optional.empty() : Optional.of(user.getId());
-        } catch (Exception ignored) {
-            return Optional.empty();
-        }
     }
 
     // Supports Authorization Bearer, X-Access-Token, and same-site access_token cookie.

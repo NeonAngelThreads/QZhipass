@@ -203,14 +203,6 @@ public class UserServiceImpl implements UserService {
     }
 
     @Override
-    public User getUserByEmail(String email) {
-        if (email == null || email.trim().isEmpty()) {
-            return null;
-        }
-        return userRepository.findByEmail(email.trim()).orElse(null);
-    }
-
-    @Override
     public User getUserByWechatOpenId(String wechatOpenId) {
         return null;
     }

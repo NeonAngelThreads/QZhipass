@@ -1,28 +1,46 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
-import { loginByEmailPassword, loginByPhonePassword, loginBySms, logoutPortal } from '../api/auth'
-import { clearLoginInfo, readLoginInfo, type LoginInfo } from '../api/session'
+import { clearLoginInfo, isLoggedIn, readLoginInfo, type LoginInfo } from '../api/session'
+import { loginByPassword, loginBySms } from '../api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const profile = ref<LoginInfo | null>(readLoginInfo())
+  const loggedIn = ref(isLoggedIn())
 
-  async function phonePasswordLogin(phone: string, password: string) {
-    profile.value = await loginByPhonePassword(phone, password)
+  function setLoginState(data: LoginInfo) {
+    profile.value = data
+    loggedIn.value = true
   }
 
-  async function emailPasswordLogin(email: string, password: string) {
-    profile.value = await loginByEmailPassword(email, password)
+  async function passwordLogin(mobile: string, password: string) {
+    const data = await loginByPassword(mobile, password)
+    setLoginState(data)
+    return data
   }
 
-  async function smsLogin(phone: string, code: string) {
-    profile.value = await loginBySms(phone, code)
+  async function smsLogin(mobile: string, smsCode: string) {
+    const data = await loginBySms(mobile, smsCode)
+    setLoginState(data)
+    return data
   }
 
-  async function logout() {
-    await logoutPortal()
+  function refreshLoginState() {
+    profile.value = readLoginInfo()
+    loggedIn.value = isLoggedIn()
+  }
+
+  function logout() {
     clearLoginInfo()
     profile.value = null
+    loggedIn.value = false
   }
 
-  return { profile, phonePasswordLogin, emailPasswordLogin, smsLogin, logout }
+  return {
+    profile,
+    loggedIn,
+    passwordLogin,
+    smsLogin,
+    refreshLoginState,
+    logout
+  }
 })

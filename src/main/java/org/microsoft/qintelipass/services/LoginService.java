@@ -31,10 +31,6 @@ public class LoginService implements ILoginable {
     }
     @Override
     public User loginByEmailAndPassword(String email, String password) {
-        User user = userService.getUserByEmail(email);
-        if (user == null || !user.isActive() || user.getPasswordHash() == null) {
-            return null;
-        }
-        return passwordEncoder.matches(password, user.getPasswordHash()) ? user : null;
+        return null;
     }
 }

@@ -1,0 +1,141 @@
+[INFO] Scanning for projects...
+[INFO] 
+[INFO] ---------------------< org.microsoft:Qintelipass >----------------------
+[INFO] Building Qintelipass 0.0.1-SNAPSHOT
+[INFO]   from pom.xml
+[INFO] --------------------------------[ jar ]---------------------------------
+[INFO] 
+[INFO] >>> spring-boot:4.1.0:run (default-cli) > test-compile @ Qintelipass >>>
+[INFO] 
+[INFO] --- resources:3.5.0:resources (default-resources) @ Qintelipass ---
+[INFO] Copying 2 resources from src\main\resources to target\classes
+[INFO] Copying 1 resource from src\main\resources to target\classes
+[INFO] 
+[INFO] --- compiler:3.15.0:compile (default-compile) @ Qintelipass ---
+[INFO] Recompiling the module because of changed source code.
+[INFO] Compiling 108 source files with javac [debug parameters release 21] to target\classes
+WARNING: A terminally deprecated method in sun.misc.Unsafe has been called
+WARNING: sun.misc.Unsafe::objectFieldOffset has been called by lombok.permit.Permit
+WARNING: Please consider reporting this to the maintainers of class lombok.permit.Permit
+WARNING: sun.misc.Unsafe::objectFieldOffset will be removed in a future release
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/TokenDailySummary.java:[25,18] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/TokenDailySummary.java:[33,28] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/TokenUsageLog.java:[24,18] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/TokenUsageLog.java:[34,28] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/dtos/UserDTO.java:[16,18] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/dtos/UserDTO.java:[19,24] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/dtos/UserDTO.java:[22,28] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/DailyConfig.java:[20,18] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/DailyConfig.java:[28,28] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/User.java:[24,18] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/User.java:[33,22] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/User.java:[36,24] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[WARNING] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/models/User.java:[43,28] @Builder will ignore the initializing expression entirely. If you want the initializing expression to serve as default, add @Builder.Default. If it is not supposed to be settable during building, make the field final.
+[INFO] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/controllers/AIChatController.java: 某些输入文件使用或覆盖了已过时的 API。
+[INFO] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/controllers/AIChatController.java: 有关详细信息, 请使用 -Xlint:deprecation 重新编译。
+[INFO] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/controllers/AuthController.java: 某些输入文件使用了未经检查或不安全的操作。
+[INFO] /F:/Microsoft/QZhipass/src/main/java/org/microsoft/qintelipass/controllers/AuthController.java: 有关详细信息, 请使用 -Xlint:unchecked 重新编译。
+[INFO] 
+[INFO] --- resources:3.5.0:testResources (default-testResources) @ Qintelipass ---
+[INFO] skip non existing resourceDirectory F:\Microsoft\QZhipass\src\test\resources
+[INFO] 
+[INFO] --- compiler:3.15.0:testCompile (default-testCompile) @ Qintelipass ---
+[INFO] Recompiling the module because of changed dependency.
+[INFO] Compiling 6 source files with javac [debug parameters release 21] to target\test-classes
+[INFO] 
+[INFO] <<< spring-boot:4.1.0:run (default-cli) < test-compile @ Qintelipass <<<
+[INFO] 
+[INFO] 
+[INFO] --- spring-boot:4.1.0:run (default-cli) @ Qintelipass ---
+[INFO] Attaching agents: []
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v4.1.0)
+
+2026-07-17T16:57:09.998+08:00  INFO 14668 --- [QZhipass] [           main] o.m.qintelipass.QZhipassApplication      : Starting QZhipassApplication v1.0.0 using Java 25.0.2 with PID 14668 (F:\Microsoft\QZhipass\target\classes started by HUAWEI in F:\Microsoft\QZhipass)
+2026-07-17T16:57:10.007+08:00  INFO 14668 --- [QZhipass] [           main] o.m.qintelipass.QZhipassApplication      : No active profile set, falling back to 1 default profile: "default"
+2026-07-17T16:57:12.514+08:00  INFO 14668 --- [QZhipass] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-07-17T16:57:12.517+08:00  INFO 14668 --- [QZhipass] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-07-17T16:57:12.859+08:00  INFO 14668 --- [QZhipass] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 327 ms. Found 10 JPA repository interfaces.
+2026-07-17T16:57:12.937+08:00  INFO 14668 --- [QZhipass] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Multiple Spring Data modules found, entering strict repository configuration mode
+2026-07-17T16:57:12.939+08:00  INFO 14668 --- [QZhipass] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data Redis repositories in DEFAULT mode.
+2026-07-17T16:57:12.973+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.AiModelConfigRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.973+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.CensorKeywordRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.974+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.CensorRecordRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.974+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.ConversationMessageRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.974+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.ConversationRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.975+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.DailyConfigRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.975+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.ModelsRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.976+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.TokenDailySummaryRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.976+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.TokenUsageLogRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.976+08:00  INFO 14668 --- [QZhipass] [           main] .RepositoryConfigurationExtensionSupport : Spring Data Redis - Could not safely identify store assignment for repository candidate interface org.microsoft.qintelipass.repository.UserRepository; If you want this repository to be a Redis repository, consider annotating your entities with one of these annotations: org.springframework.data.redis.core.RedisHash (preferred), or consider extending one of the following types with your repository: org.springframework.data.keyvalue.repository.KeyValueRepository
+2026-07-17T16:57:12.976+08:00  INFO 14668 --- [QZhipass] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 18 ms. Found 0 Redis repository interfaces.
+2026-07-17T16:57:14.317+08:00  INFO 14668 --- [QZhipass] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 7510 (http)
+2026-07-17T16:57:14.343+08:00  INFO 14668 --- [QZhipass] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-07-17T16:57:14.344+08:00  INFO 14668 --- [QZhipass] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.22]
+2026-07-17T16:57:14.484+08:00  INFO 14668 --- [QZhipass] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 4323 ms
+2026-07-17T16:57:15.024+08:00  INFO 14668 --- [QZhipass] [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-07-17T16:57:15.145+08:00  INFO 14668 --- [QZhipass] [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.1.Final
+2026-07-17T16:57:15.891+08:00  INFO 14668 --- [QZhipass] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-07-17T16:57:15.953+08:00  INFO 14668 --- [QZhipass] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-07-17T16:57:16.811+08:00  INFO 14668 --- [QZhipass] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@7ee02968
+2026-07-17T16:57:16.814+08:00  INFO 14668 --- [QZhipass] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-07-17T16:57:16.973+08:00  WARN 14668 --- [QZhipass] [           main] org.hibernate.orm.deprecation            : HHH90000025: MySQLDialect does not need to be specified explicitly using 'hibernate.dialect' (remove the property setting and it will be selected by default)
+2026-07-17T16:57:17.005+08:00  INFO 14668 --- [QZhipass] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+	Database JDBC URL [jdbc:mysql://localhost:3306/Qzhipass]
+	Database driver: MySQL Connector/J
+	Database dialect: MySQLDialect
+	Database version: 8.0.43
+	Default catalog/schema: Qzhipass/undefined
+	Autocommit mode: undefined/unknown
+	Isolation level: REPEATABLE_READ [default REPEATABLE_READ]
+	JDBC fetch size: none
+	Pool: DataSourceConnectionProvider
+	Minimum pool size: undefined/unknown
+	Maximum pool size: undefined/unknown
+2026-07-17T16:57:19.730+08:00  INFO 14668 --- [QZhipass] [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+Hibernate: alter table conversation_messages modify column role enum ('ASSISTANT','SYSTEM','USER') not null
+2026-07-17T16:57:20.142+08:00  INFO 14668 --- [QZhipass] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-07-17T16:57:20.266+08:00  INFO 14668 --- [QZhipass] [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-07-17T16:57:22.810+08:00  WARN 14668 --- [QZhipass] [           main] ConfigServletWebServerApplicationContext : Exception encountered during context initialization - cancelling refresh attempt: org.springframework.beans.factory.UnsatisfiedDependencyException: Error creating bean with name 'AIChatController' defined in file [F:\Microsoft\QZhipass\target\classes\org\microsoft\qintelipass\controllers\AIChatController.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'AIChatService' defined in file [F:\Microsoft\QZhipass\target\classes\org\microsoft\qintelipass\services\AIChatService.class]: Unsatisfied dependency expressed through constructor parameter 0: Error creating bean with name 'AIModelProviderService' defined in file [F:\Microsoft\QZhipass\target\classes\org\microsoft\qintelipass\services\AIModelProviderService.class]: Unsatisfied dependency expressed through constructor parameter 1: No qualifying bean of type 'org.springframework.ai.chat.model.ChatModel' available: expected at least 1 bean which qualifies as autowire candidate. Dependency annotations: {}
+2026-07-17T16:57:22.831+08:00  INFO 14668 --- [QZhipass] [           main] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
+2026-07-17T16:57:22.835+08:00  INFO 14668 --- [QZhipass] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
+2026-07-17T16:57:22.845+08:00  INFO 14668 --- [QZhipass] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
+2026-07-17T16:57:22.853+08:00  INFO 14668 --- [QZhipass] [           main] o.apache.catalina.core.StandardService   : Stopping service [Tomcat]
+2026-07-17T16:57:22.874+08:00  INFO 14668 --- [QZhipass] [           main] .s.b.a.l.ConditionEvaluationReportLogger : 
+
+Error starting ApplicationContext. To display the condition evaluation report re-run your application with 'debug' enabled.
+2026-07-17T16:57:22.907+08:00 ERROR 14668 --- [QZhipass] [           main] o.s.b.d.LoggingFailureAnalysisReporter   : 
+
+***************************
+APPLICATION FAILED TO START
+***************************
+
+Description:
+
+Parameter 1 of constructor in org.microsoft.qintelipass.services.AIModelProviderService required a bean of type 'org.springframework.ai.chat.model.ChatModel' that could not be found.
+
+
+Action:
+
+Consider defining a bean of type 'org.springframework.ai.chat.model.ChatModel' in your configuration.
+
+[INFO] ------------------------------------------------------------------------
+[INFO] BUILD FAILURE
+[INFO] ------------------------------------------------------------------------
+[INFO] Total time:  33.817 s
+[INFO] Finished at: 2026-07-17T16:57:24+08:00
+[INFO] ------------------------------------------------------------------------
+[ERROR] Failed to execute goal org.springframework.boot:spring-boot-maven-plugin:4.1.0:run (default-cli) on project Qintelipass: Process terminated with exit code: 1 -> [Help 1]
+[ERROR] 
+[ERROR] To see the full stack trace of the errors, re-run Maven with the -e switch.
+[ERROR] Re-run Maven using the -X switch to enable full debug logging.
+[ERROR] 
+[ERROR] For more information about the errors and possible solutions, please read the following articles:
+[ERROR] [Help 1] http://cwiki.apache.org/confluence/display/MAVEN/MojoExecutionException
