@@ -14,6 +14,7 @@ import jakarta.persistence.Lob;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import jakarta.persistence.UniqueConstraint;
 import lombok.Getter;
 import lombok.Setter;
 
@@ -24,6 +25,10 @@ import java.time.LocalDateTime;
 @Entity
 @Table(
         name = "conversation_messages",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_conversation_message_request_role",
+                columnNames = {"conversation_id", "request_id", "role"}
+        ),
         indexes = {
                 @Index(name = "idx_conversation_messages_conversation", columnList = "conversation_id"),
                 @Index(name = "idx_conversation_messages_conversation_created", columnList = "conversation_id,created_at"),
@@ -50,6 +55,16 @@ public class ConversationMessage {
 
     @Column(name = "model_key", length = 100)
     private String modelKey;
+
+    @Column(name = "token_count", nullable = false)
+    private int tokenCount;
+
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 20)
+    private ConversationMessageStatus status = ConversationMessageStatus.COMPLETED;
+
+    @Column(name = "request_id", length = 64)
+    private String requestId;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

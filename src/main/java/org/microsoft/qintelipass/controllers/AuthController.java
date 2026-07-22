@@ -5,10 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.ILoginStrategy;
 import org.microsoft.qintelipass.LoginStrategyFactory;
 import org.microsoft.qintelipass.request.LoginRequest;
-import org.microsoft.qintelipass.response.ConversationResponse;
 import org.microsoft.qintelipass.response.ResponseBody;
 import org.microsoft.qintelipass.services.AuthTokenService;
-import org.microsoft.qintelipass.services.ConversationService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
@@ -25,20 +23,17 @@ import java.util.Map;
 @Slf4j
 @RestController
 @RequestMapping("api/v1/portal")
-// Portal login entry. Successful login issues accessToken and creates an initial conversation.
+// Portal login entry. Conversations are created lazily when the user sends the first message.
 public class AuthController {
     private final LoginStrategyFactory factory;
     private final AuthTokenService authTokenService;
-    private final ConversationService conversationService;
 
     public AuthController(
             LoginStrategyFactory factory,
-            AuthTokenService authTokenService,
-            ConversationService conversationService
+            AuthTokenService authTokenService
     ) {
         this.factory = factory;
         this.authTokenService = authTokenService;
-        this.conversationService = conversationService;
     }
 
     @PostMapping("/login")
@@ -52,8 +47,7 @@ public class AuthController {
         if (response.isSuccess()) {
             Long userId = extractUserId(response, params);
             String accessToken = authTokenService.issueToken(userId);
-            ConversationResponse conversation = conversationService.createInitialConversation(userId);
-            response.setData(buildLoginData(userId, accessToken, conversation));
+            response.setData(buildLoginData(userId, accessToken));
 
             ResponseCookie accessTokenCookie = ResponseCookie.from("access_token", accessToken)
                     .httpOnly(true)
@@ -115,14 +109,11 @@ public class AuthController {
 
     private Map<String, Object> buildLoginData(
             Long userId,
-            String accessToken,
-            ConversationResponse conversation
+            String accessToken
     ) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("user_id", userId);
         data.put("access_token", accessToken);
-        data.put("initialConversationId", conversation.id());
-        data.put("conversation", conversation);
         return data;
     }
 }

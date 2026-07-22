@@ -2,7 +2,7 @@
 
 ## 功能范围
 
-本次实现“新建对话”后端能力：登录成功后自动创建初始空白对话，用户也可以手动创建新对话、查询自己的最近对话、读取对话详情、保存消息、切换模型和修改标题。
+本次实现“新建对话”后端能力：点击新建时只进入前端空白状态，不保存空对话；用户发送第一条消息时才创建并保存对话。用户也可以查询自己的最近对话、读取对话详情、保存消息、切换模型和修改标题。
 
 首次保存 `ASSISTANT` 消息后，如果标题仍是默认值“新建对话”，后端会根据第一条 `USER` 消息自动生成标题并保存。
 
@@ -74,9 +74,9 @@
 
 ### 最近对话列表
 
-`GET /api/v1/conversations?limit=20`
+`GET /api/v1/conversations?page=0&limit=20`
 
-只返回当前登录用户自己的对话，按 `lastMessageAt`、`updatedAt` 倒序排列。
+只返回当前登录用户自己的 `ACTIVE` 对话，按 `lastMessageAt`、`updatedAt`、`id` 倒序排列。前端滚动或点击“加载更多历史”继续请求下一页，因此不存在 100 条历史对话的硬上限；列表同时展示标题和 `createdAt`。
 
 ### 对话详情
 
@@ -139,3 +139,25 @@
 ```
 
 自动化测试使用 H2 的 MySQL 兼容模式，不依赖真实 MySQL、Redis 或真实大模型接口。人工联调真实环境时，请先由数据库负责人审阅并执行 `docs/sql/new_chat_backend.sql`。
+
+## AI 对话验收实现
+
+统一发送入口为 `POST /api/v1/conversations/{conversationId}/turns`：
+
+```json
+{
+  "prompt": "帮我总结今天的会议",
+  "modelKey": "deepseek-v4",
+  "requestId": "前端生成的唯一请求号"
+}
+```
+
+新对话的第一条消息使用 `POST /api/v1/conversations/turns`，请求体相同。该接口先创建不会出现在历史列表中的 `PENDING` 对话，AI 成功后一次完成“保存用户消息 + AI 回复 + 标题生成 + 激活对话”；AI 失败则标记为 `FAILED`。因此仅点击“开启新会话”或首轮 AI 失败都不会产生历史栏条目。
+
+- `prompt` 按 Unicode 字符计数，最多 2000 字符。
+- 完整消息始终写入 `conversation_messages`；首次 AI 回复后立即保存，每 5 分钟更新一次近期活跃会话的保存检查点。
+- 上下文不固定轮数：优先携带目标 2000 token 内的最近完整问答，更早内容写入 `conversation_memories` 的增量摘要；系统提示、摘要、原文和当前问题合计不超过 4000 token。计数器对 Emoji、补充平面字符和非常用 Unicode 采用额外 token 预算，并预留安全余量；若最新提示词本身超过上下文预算则直接拒绝，不截断用户问题。
+- 首次 AI 回复后生成一次标题，业务层强制不超过 25 个 Unicode 字符；后续回复不再自动修改。
+- `requestId` 在同一对话、角色下唯一，超时重试不会重复保存同一轮消息。
+
+已有数据库运行 `docs/sql/ai_chat_acceptance_upgrade.sql`，全新数据库运行 `docs/sql/new_chat_backend.sql`。本地环境变量模板见 `docs/local-dev-env.example.ps1`；真实 MySQL、Redis、JWT 和 AI 密钥不得提交到仓库。

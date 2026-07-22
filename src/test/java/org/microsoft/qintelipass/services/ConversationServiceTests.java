@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 
 import java.util.List;
+import java.util.stream.IntStream;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
@@ -99,6 +100,40 @@ class ConversationServiceTests {
     }
 
     @Test
+    void paginatesAllHistoryWithoutAHardConversationLimit() {
+        IntStream.range(0, 25).forEach(index -> conversationService.createConversation(USER_ONE, null));
+
+        List<ConversationSummaryResponse> firstPage =
+                conversationService.listRecentConversations(USER_ONE, 0, 20);
+        List<ConversationSummaryResponse> secondPage =
+                conversationService.listRecentConversations(USER_ONE, 1, 20);
+
+        assertThat(firstPage).hasSize(20);
+        assertThat(secondPage).hasSize(5);
+        assertThat(List.of(firstPage, secondPage).stream().flatMap(List::stream))
+                .extracting(ConversationSummaryResponse::id)
+                .doesNotHaveDuplicates()
+                .hasSize(25);
+    }
+
+    @Test
+    void excludesPendingAndFailedFirstTurnsFromHistory() {
+        ConversationResponse active = conversationService.createConversation(USER_ONE, null);
+        Conversation pending = new Conversation();
+        pending.setUserId(USER_ONE);
+        pending.setStatus(Conversation.STATUS_PENDING);
+        conversationRepository.save(pending);
+        Conversation failed = new Conversation();
+        failed.setUserId(USER_ONE);
+        failed.setStatus(Conversation.STATUS_FAILED);
+        conversationRepository.save(failed);
+
+        assertThat(conversationService.listRecentConversations(USER_ONE, 0, 20))
+                .extracting(ConversationSummaryResponse::id)
+                .containsExactly(active.id());
+    }
+
+    @Test
     void rejectsAccessToAnotherUsersConversation() {
         ConversationResponse conversation = conversationService.createConversation(USER_ONE, null);
 
@@ -130,13 +165,15 @@ class ConversationServiceTests {
         ConversationDetailResponse detail = conversationService.getConversation(USER_ONE, conversation.id());
         assertThat(userMessage.role()).isEqualTo("USER");
         assertThat(assistantMessage.role()).isEqualTo("ASSISTANT");
-        assertThat(detail.conversation().title()).isEqualTo("analyze annual budget and cash flow");
+        assertThat(detail.conversation().title()).isEqualTo("analyze annual budget and");
+        assertThat(detail.conversation().title().codePointCount(0, detail.conversation().title().length()))
+                .isLessThanOrEqualTo(25);
         assertThat(detail.messages()).extracting(ConversationMessageResponse::role).containsExactly("USER", "ASSISTANT");
         assertThat(detail.model()).isEqualTo(new ModelResponse("gpt4-omni", "GPT-4 Omni", "OPENAI"));
 
         conversationService.saveMessage(USER_ONE, conversation.id(), message("ASSISTANT", "Second answer.", null));
         ConversationDetailResponse afterSecondAssistant = conversationService.getConversation(USER_ONE, conversation.id());
-        assertThat(afterSecondAssistant.conversation().title()).isEqualTo("analyze annual budget and cash flow");
+        assertThat(afterSecondAssistant.conversation().title()).isEqualTo("analyze annual budget and");
     }
 
     @Test

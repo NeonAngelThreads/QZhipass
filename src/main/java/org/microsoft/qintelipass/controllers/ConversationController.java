@@ -1,7 +1,9 @@
 package org.microsoft.qintelipass.controllers;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.microsoft.qintelipass.request.CreateConversationRequest;
+import org.microsoft.qintelipass.request.ConversationTurnRequest;
 import org.microsoft.qintelipass.request.SaveConversationMessageRequest;
 import org.microsoft.qintelipass.request.UpdateConversationModelRequest;
 import org.microsoft.qintelipass.request.UpdateConversationTitleRequest;
@@ -10,7 +12,9 @@ import org.microsoft.qintelipass.response.ConversationDetailResponse;
 import org.microsoft.qintelipass.response.ConversationMessageResponse;
 import org.microsoft.qintelipass.response.ConversationResponse;
 import org.microsoft.qintelipass.response.ConversationSummaryResponse;
+import org.microsoft.qintelipass.response.ConversationTurnResponse;
 import org.microsoft.qintelipass.services.ConversationService;
+import org.microsoft.qintelipass.services.ConversationTurnService;
 import org.microsoft.qintelipass.services.CurrentUserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -31,10 +35,37 @@ import java.util.List;
 public class ConversationController {
     private final ConversationService conversationService;
     private final CurrentUserService currentUserService;
+    private final ConversationTurnService conversationTurnService;
 
-    public ConversationController(ConversationService conversationService, CurrentUserService currentUserService) {
+    public ConversationController(
+            ConversationService conversationService,
+            CurrentUserService currentUserService,
+            ConversationTurnService conversationTurnService
+    ) {
         this.conversationService = conversationService;
         this.currentUserService = currentUserService;
+        this.conversationTurnService = conversationTurnService;
+    }
+
+    @PostMapping("/{conversationId}/turns")
+    public ResponseEntity<ApiResponse<ConversationTurnResponse>> sendTurn(
+            @PathVariable Long conversationId,
+            @Valid @RequestBody ConversationTurnRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = currentUserService.requireUserId(httpRequest);
+        ConversationTurnResponse response = conversationTurnService.send(userId, conversationId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Turn completed.", response));
+    }
+
+    @PostMapping("/turns")
+    public ResponseEntity<ApiResponse<ConversationTurnResponse>> sendFirstTurn(
+            @Valid @RequestBody ConversationTurnRequest request,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = currentUserService.requireUserId(httpRequest);
+        ConversationTurnResponse response = conversationTurnService.sendNew(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Conversation created and turn completed.", response));
     }
 
     @PostMapping
@@ -60,11 +91,12 @@ public class ConversationController {
 
     @GetMapping
     public ApiResponse<List<ConversationSummaryResponse>> listRecentConversations(
+            @RequestParam(required = false) Integer page,
             @RequestParam(required = false) Integer limit,
             HttpServletRequest request
     ) {
         Long userId = currentUserService.requireUserId(request);
-        return ApiResponse.ok(conversationService.listRecentConversations(userId, limit));
+        return ApiResponse.ok(conversationService.listRecentConversations(userId, page, limit));
     }
 
     @GetMapping("/{conversationId}")

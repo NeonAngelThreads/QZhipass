@@ -3,6 +3,7 @@ package org.microsoft.qintelipass.services;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import org.microsoft.qintelipass.exceptions.UnauthorizedException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -15,12 +16,22 @@ public class CurrentUserService {
 
     private final AuthTokenService authTokenService;
 
+    @Value("${app.dev-user-id:}")
+    private String devUserId;
+
     public CurrentUserService(AuthTokenService authTokenService) {
         this.authTokenService = authTokenService;
     }
 
     // All conversation APIs use this numeric id as their trusted current user identity.
     public Long requireUserId(HttpServletRequest request) {
+        if (StringUtils.hasText(devUserId)) {
+            try {
+                return Long.parseLong(devUserId.trim());
+            } catch (NumberFormatException exception) {
+                throw new IllegalStateException("app.dev-user-id must be a numeric user id.");
+            }
+        }
         String token = resolveToken(request)
                 .orElseThrow(() -> new UnauthorizedException("Missing access token."));
         return authTokenService.resolveUserId(token)

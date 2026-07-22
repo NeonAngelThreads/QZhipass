@@ -28,6 +28,12 @@ export function readLoginInfo(): LoginInfo | null {
   const initialConversationId = Number(window.localStorage.getItem(INITIAL_CONVERSATION_ID_KEY))
 
   if (!userId || !accessToken) {
+    if (import.meta.env.DEV) {
+      return {
+        userId: '9001',
+        accessToken: 'local-dev'
+      }
+    }
     return null
   }
 

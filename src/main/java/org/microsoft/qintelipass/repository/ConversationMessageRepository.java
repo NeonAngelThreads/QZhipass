@@ -23,4 +23,15 @@ public interface ConversationMessageRepository extends JpaRepository<Conversatio
             Long conversationId,
             ConversationMessageRole role
     );
+
+    List<ConversationMessage> findByConversation_IdAndStatusOrderByCreatedAtAscIdAsc(
+            Long conversationId,
+            org.microsoft.qintelipass.entity.ConversationMessageStatus status
+    );
+
+    Optional<ConversationMessage> findFirstByConversation_IdAndRequestIdAndRole(
+            Long conversationId,
+            String requestId,
+            ConversationMessageRole role
+    );
 }
