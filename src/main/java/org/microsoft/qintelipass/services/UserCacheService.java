@@ -3,7 +3,6 @@ package org.microsoft.qintelipass.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.models.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -26,7 +25,7 @@ public class UserCacheService {
         this.objectMapper = objectMapper;
     }
 
-    public void cacheUser(UserDTO user) {
+    public void cacheUser(User user) {
         try {
             String userJson = objectMapper.writeValueAsString(user);
             String userKey = USER_KEY_PREFIX + user.getId();
@@ -43,15 +42,19 @@ public class UserCacheService {
 
     public User getCachedUserById(Long userId) {
         if (userId == null) {
+            log.info("[FLAG 3]");
             return null;
         }
         String userKey = USER_KEY_PREFIX + userId;
         String userJson = redisTemplate.opsForValue().get(userKey);
         if (userJson == null) {
+            log.info("[FLAG 4]");
             return null;
         }
         try {
-            return objectMapper.readValue(userJson, User.class);
+            User user = objectMapper.readValue(userJson, User.class);
+            log.info("deserialize as {}", user);
+            return user;
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize cached user: {}", userId, e);
             return null;
@@ -60,11 +63,13 @@ public class UserCacheService {
 
     public User getCachedUserByPhone(String phone) {
         if (phone == null || phone.trim().isEmpty()) {
+            log.info("[FLAG 0]");
             return null;
         }
         String phoneKey = PHONE_INDEX_PREFIX + phone;
         String userIdStr = redisTemplate.opsForValue().get(phoneKey);
         if (userIdStr == null) {
+            log.info("[FLAG 1]");
             return null;
         }
         try {

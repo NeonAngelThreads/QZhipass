@@ -3,6 +3,7 @@ package org.microsoft.qintelipass.models;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.microsoft.qintelipass.util.Snowflake;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -24,8 +25,7 @@ public class Conversation {
     public static final String STATUS_ACTIVE = "ACTIVE";
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id = Snowflake.nextId();
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -54,6 +54,7 @@ public class Conversation {
     @PrePersist
     void prePersist() {
         LocalDateTime now = LocalDateTime.now();
+        id = Snowflake.nextId();
         createdAt = now;
         updatedAt = now;
         lastMessageAt = now;

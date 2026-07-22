@@ -1,7 +1,6 @@
 package org.microsoft.qintelipass.services;
 
 import lombok.extern.slf4j.Slf4j;
-import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.repository.UserRepository;
@@ -174,7 +173,7 @@ public class UserServiceImpl implements UserService {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            userCacheService.cacheUser(UserDTO.fromUser(user));
+            userCacheService.cacheUser(user);
             return user;
         }
         return null;
@@ -184,19 +183,23 @@ public class UserServiceImpl implements UserService {
     public User getUserByPhone(String phone) {
         if (phone == null || phone.trim().isEmpty()) {
             return null;
-        }
-
-        User cachedUser = userCacheService.getCachedUserByPhone(phone);
-        if (cachedUser != null) {
-            log.debug("User found in cache by phone: {}", phone);
-            return cachedUser;
+        };
+        try {
+            User cachedUser = userCacheService.getCachedUserByPhone(phone);
+            log.info("got user by phone: {}", cachedUser);
+            if (cachedUser != null) {
+                log.debug("User found in cache by phone: {}", phone);
+                return cachedUser;
+            }
+        } catch (Exception e){
+            log.error("error ", e);
         }
 
         log.debug("User not in cache, fetching from database by phone: {}", phone);
         Optional<User> userOpt = userRepository.findByPhone(phone);
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            userCacheService.cacheUser(UserDTO.fromUser(user));
+            userCacheService.cacheUser(user);
             return user;
         }
         return null;
@@ -222,7 +225,7 @@ public class UserServiceImpl implements UserService {
         User savedUser = userRepository.save(user);
         log.info("User saved to database: {}", savedUser.getId());
 
-        userCacheService.cacheUser(UserDTO.fromUser(savedUser));
+        userCacheService.cacheUser((savedUser));
         log.debug("User cached: {}", savedUser.getId());
     }
 
@@ -246,7 +249,7 @@ public class UserServiceImpl implements UserService {
         user.setStatus(UserStatus.CANCELLED);
         User savedUser = userRepository.save(user);
 
-        userCacheService.cacheUser(UserDTO.fromUser(savedUser));
+        userCacheService.cacheUser((savedUser));
 
         return true;
     }
