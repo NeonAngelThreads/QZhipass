@@ -15,5 +15,10 @@ public interface UserService {
     boolean deactivateUser(Long userId);
     boolean isUserDeactivated(Long userId);
     User findByUsername(String username);
+    User createAccount(String name, String department, String email, String phone, String wechat, String password);
+    User loginByPassword(String phone, String password);
 
+    boolean isUserActive(String phone);
+
+    void freezeAccount(String phone);
 }

@@ -1,6 +1,6 @@
 package org.microsoft.qintelipass.response;
 
-import org.microsoft.qintelipass.entity.ConversationMessage;
+import org.microsoft.qintelipass.models.ConversationMessage;
 
 import java.time.LocalDateTime;
 

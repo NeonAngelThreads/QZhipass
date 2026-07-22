@@ -1,11 +1,11 @@
 package org.microsoft.qintelipass.services;
 
-import org.microsoft.qintelipass.entity.Conversation;
-import org.microsoft.qintelipass.entity.ConversationMessage;
-import org.microsoft.qintelipass.entity.ConversationMessageRole;
 import org.microsoft.qintelipass.exceptions.BadRequestException;
 import org.microsoft.qintelipass.exceptions.ForbiddenException;
 import org.microsoft.qintelipass.exceptions.NotFoundException;
+import org.microsoft.qintelipass.models.Conversation;
+import org.microsoft.qintelipass.models.ConversationMessage;
+import org.microsoft.qintelipass.models.ConversationMessageRole;
 import org.microsoft.qintelipass.repository.ConversationMessageRepository;
 import org.microsoft.qintelipass.repository.ConversationRepository;
 import org.microsoft.qintelipass.request.CreateConversationRequest;
@@ -87,7 +87,7 @@ public class ConversationService {
                 .stream()
                 .map(ConversationMessageResponse::from)
                 .toList();
-        ModelResponse model = aiModelService.findAvailableModel(conversation.getModelKey()).orElse(null);
+        ModelResponse model = (ModelResponse) aiModelService.findAvailableModel(conversation.getModelKey()).orElse(null);
         return new ConversationDetailResponse(ConversationResponse.from(conversation), messages, model);
     }
 

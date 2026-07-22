@@ -1,6 +1,7 @@
 package org.microsoft.qintelipass.repository;
 
-import org.microsoft.qintelipass.entity.AiModelConfig;
+import org.jspecify.annotations.Nullable;
+import org.microsoft.qintelipass.models.AiModelConfig;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -10,10 +11,9 @@ import java.util.Optional;
 public interface AiModelConfigRepository extends JpaRepository<AiModelConfig, Long> {
     // 模型列表按 sortOrder 和名称稳定排序。
     List<AiModelConfig> findByEnabledTrueOrderBySortOrderAscDisplayNameAsc();
-
+    Optional<AiModelConfig> findById(@Nullable Long id);
     // 查询详情时只返回仍启用的模型。
     Optional<AiModelConfig> findByModelKeyAndEnabledTrue(String modelKey);
-
     // 创建对话和切换模型前校验 modelKey 是否可用。
     boolean existsByModelKeyAndEnabledTrue(String modelKey);
 }

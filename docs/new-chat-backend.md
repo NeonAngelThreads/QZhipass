@@ -34,23 +34,28 @@
 
 ```json
 {
-  "success": true,
-  "message": "Login Successful.",
   "data": {
-    "user_id": 1001,
-    "access_token": "generated-token",
-    "initialConversationId": 1,
-    "conversation": {
-      "id": 1,
-      "conversationId": 1,
-      "title": "新建对话",
-      "modelKey": null,
-      "status": "ACTIVE",
-      "createdAt": "2026-06-30T16:00:00",
-      "updatedAt": "2026-06-30T16:00:00",
-      "lastMessageAt": "2026-06-30T16:00:00"
-    }
-  }
+    "id": 265451424236699648,
+    "phone": "13417000000",
+    "email": "example@163.com",
+    "status": "NORMAL",
+    "name": "Hello123",
+    "department": "snd",
+    "joinedAt": "2026-07-03T12:09:11.436284Z"
+  },
+  "conversation": {
+    "id": 1,
+    "conversationId": 1,
+    "title": "新建对话",
+    "modelKey": null,
+    "status": "ACTIVE",
+    "createdAt": "2026-07-06T02:58:29.2651293",
+    "updatedAt": "2026-07-06T02:58:29.2651293",
+    "lastMessageAt": "2026-07-06T02:58:29.2651293"
+  },
+  "initialConversationId": 1,
+  "token": "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJIZWxsbzEyMyIsImlhdCI6MTc4MzI3NzkwOSwiZXhwIjoxNzgzMzY0MzA5fQ.oTQFmNK1kfA-Xw047wpAUPeWvghgHMkF-hBuf-YKXBI",
+  "success": true
 }
 ```
 

@@ -23,7 +23,7 @@ public class MobilePasswordStrategy implements ILoginStrategy {
         try {
             user = loginService.loginByPhoneAndPassword((String) params.get("mobile"), (String) params.get("password"));
         } catch (Exception e) {
-            return ResponseBody.<User>builder().success(false).message(e.getMessage()).build();
+            throw new IllegalArgumentException(e.getMessage());
         }
         if (user != null) {
             return ResponseBody.<User>builder().success(true).payload(user).build();

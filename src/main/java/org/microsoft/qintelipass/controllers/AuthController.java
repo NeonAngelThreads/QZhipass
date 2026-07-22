@@ -43,18 +43,18 @@ public class AuthController {
     private final UserDetailsServiceImpl userDetailsService;
     private final CredentialManager credentialManager;
     private static final String COOKIE_ROOT = "/";
-    private static final Integer EXPIRATION = 7 * 24 * 60 * 60;
-    private static final String HEADER = "access_token";
     @Autowired
     private IRegisterable registerService;
+    private final ConversationService conversationService;
 
     @Autowired
-    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager) {
+    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager, ConversationService conversationService) {
         this.factory = factory;
         this.smsService = smsService;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.credentialManager = credentialManager;
+        this.conversationService = conversationService;
     }
 
     @CrossOrigin
@@ -70,19 +70,21 @@ public class AuthController {
             if (response.isSuccess() && user != null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(user.getName());
                 String token = jwtUtil.generateToken(userDetails);
-                Cookie userIdCookie = new Cookie("user_id", String.valueOf(user.getId()));
-                Cookie auth = new Cookie(HEADER, token);
-                userIdCookie.setPath(COOKIE_ROOT);
-                userIdCookie.setMaxAge(EXPIRATION);
-                auth.setPath(COOKIE_ROOT);
-                auth.setMaxAge(EXPIRATION);
-                httpResponse.addCookie(userIdCookie);
-                httpResponse.addCookie(auth);
+                ResponseCookie auth = ResponseCookie.from("access_token", token)
+                        .httpOnly(true)
+                        .sameSite("Lax")
+                        .path(COOKIE_ROOT)
+                        .maxAge(Duration.ofDays(7))
+                        .build();
+                httpResponse.addHeader(HttpHeaders.SET_COOKIE, auth.toString());
+                ConversationResponse conversation = conversationService.createInitialConversation(user.getId());
 
                 return ResponseEntity.ok(Map.of(
                         "success", true,
                         "data", UserDTO.fromUser(user),
-                        "token", token
+                        "token", token,
+                        "conversation", conversation,
+                        "initialConversationId", conversation.id()
                 ));
             }
             return ResponseEntity.badRequest().body(response);
@@ -125,7 +127,17 @@ public class AuthController {
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@RequestBody RegisterRequest payload) {
-        User registered = registerService.register(payload, payload.getPassword());
+        User registered;
+        try {
+            registered = registerService.register(payload, payload.getPassword());
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity
+                    .badRequest()
+                    .body(Map.of(
+                            "success", false,
+                            "message", e.getMessage()
+                    ));
+        }
         Map<String, Object> responseBody = new HashMap<>();
 
         if (registered != null) {
@@ -146,7 +158,7 @@ public class AuthController {
                     .badRequest()
                     .body(Map.of(
                             "success", false,
-                            "message", "Information is not completed with integrity, cloud not register."
+                            "message", "Information is not completed, cloud not register."
                     ));
 
         }

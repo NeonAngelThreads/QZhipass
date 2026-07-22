@@ -41,9 +41,10 @@ http.interceptors.response.use(
     if (axios.isAxiosError(error) && error.response?.status === 401) {
       clearLoginInfo()
 
-      if (window.location.pathname !== '/login') {
-        window.location.assign('/login')
-      }
+      // DEV: 临时禁用登录跳转
+      // if (window.location.pathname !== '/login') {
+      //   window.location.assign('/login')
+      // }
     }
 
     return Promise.reject(error)

@@ -1,6 +1,5 @@
 package org.microsoft.qintelipass.services;
 
-import org.microsoft.qintelipass.entity.Conversation;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -14,7 +13,7 @@ public class LocalConversationTitleGenerator implements ConversationTitleGenerat
     public String generateTitle(String firstUserMessage) {
         String normalized = firstUserMessage == null ? "" : firstUserMessage.replaceAll("\\s+", " ").trim();
         if (!StringUtils.hasText(normalized)) {
-            return Conversation.DEFAULT_TITLE;
+            return org.microsoft.qintelipass.models.Conversation.DEFAULT_TITLE;
         }
         if (normalized.length() <= MAX_TITLE_LENGTH) {
             return normalized;

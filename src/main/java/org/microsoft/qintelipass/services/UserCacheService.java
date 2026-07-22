@@ -54,7 +54,6 @@ public class UserCacheService {
             return objectMapper.readValue(userJson, User.class);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize cached user: {}", userId, e);
-            deleteCachedUser(userId);
             return null;
         }
     }

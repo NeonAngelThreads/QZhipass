@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.TokenUsageRankDTO;
 import org.microsoft.qintelipass.dtos.UserTokenUsageDTO;
 import org.microsoft.qintelipass.response.ResponseBody;
+import org.microsoft.qintelipass.scheduler.tasks.DailyAggregationTask;
 import org.microsoft.qintelipass.security.SecurityUtil;
 import org.microsoft.qintelipass.services.TokenUsageService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -114,9 +115,10 @@ class TokenUsageAdminController {
     @GetMapping("/statistics/overuse/users")
     public ResponseEntity<?> overuseUsers(){
         SecurityUtil.requireAuthentication();
+        Long users = tokenUsageService.getOveruseUsers();
         Map<String, Object> stat = Map.of(
-                "count", tokenUsageService.getOveruseUsers(),
-                "percent", 0.1
+                "count", users,
+                "percent", (double) users / (double) DailyAggregationTask.getYesterdayOveruseUsers()
         );
         return ResponseEntity.ok().body(stat);
     }

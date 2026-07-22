@@ -12,11 +12,15 @@ import java.util.Optional;
 
 @Service
 // 统一处理模型列表查询和 modelKey 可用性校验。
-public class AiModelService {
+public class AiModelService implements ModelService{
     private final AiModelConfigRepository modelConfigRepository;
 
     public AiModelService(AiModelConfigRepository modelConfigRepository) {
         this.modelConfigRepository = modelConfigRepository;
+    }
+    @Override
+    public Optional findModelById(Long id){
+        return modelConfigRepository.findById(id);
     }
 
     @Transactional(readOnly = true)
@@ -52,7 +56,7 @@ public class AiModelService {
 
     @Transactional(readOnly = true)
     // 对话详情中只展示仍然可用的模型配置。
-    public Optional<ModelResponse> findAvailableModel(String modelKey) {
+    public Optional findAvailableModel(String modelKey) {
         if (!StringUtils.hasText(modelKey)) {
             return Optional.empty();
         }

@@ -2,11 +2,11 @@ package org.microsoft.qintelipass.services;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.microsoft.qintelipass.entity.AiModelConfig;
-import org.microsoft.qintelipass.entity.Conversation;
 import org.microsoft.qintelipass.exceptions.BadRequestException;
 import org.microsoft.qintelipass.exceptions.ForbiddenException;
 import org.microsoft.qintelipass.exceptions.NotFoundException;
+import org.microsoft.qintelipass.models.AiModelConfig;
+import org.microsoft.qintelipass.models.Conversation;
 import org.microsoft.qintelipass.repository.AiModelConfigRepository;
 import org.microsoft.qintelipass.repository.ConversationMessageRepository;
 import org.microsoft.qintelipass.repository.ConversationRepository;

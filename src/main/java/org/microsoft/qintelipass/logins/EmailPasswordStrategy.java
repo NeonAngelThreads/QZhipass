@@ -20,13 +20,14 @@ public class EmailPasswordStrategy implements ILoginStrategy {
         String password = (String) params.get("password");
 
         if (email == null || email.isBlank()) {
-            return new ResponseBody(false, "Email could not be NULL.");
+            return ResponseBody.builder().success(false).message("Email could not be NULL.").build();
         }
 
         if (password == null || password.isBlank()) {
-            return new ResponseBody(false, "Password could not be NULL.");
+            return ResponseBody.builder().success(false).message("Password co" +
+                    "uld not be NULL.").build();
         }
 
-        return new ResponseBody(false, "Email password login not fully implemented yet.");
+        return ResponseBody.builder().success(false).message("Email password login not fully implemented yet.").build();
     }
 }

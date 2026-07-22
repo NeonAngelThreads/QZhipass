@@ -5,7 +5,7 @@ import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.util.Snowflake;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 
 @Data
 @Builder
@@ -19,7 +19,7 @@ public class UserDTO {
     private UserStatus status = UserStatus.NORMAL;
     private String name;
     private String department;
-    private OffsetDateTime joinedAt = OffsetDateTime.now();
+    private LocalDateTime createdAt = LocalDateTime.now();
 
     public static UserDTO fromUser(User user) {
         return UserDTO.builder()
@@ -29,7 +29,7 @@ public class UserDTO {
                 .status(user.getStatus())
                 .name(user.getName())
                 .department(user.getDepartment())
-                .joinedAt(user.getJoinedAt())
+                .createdAt(user.getCreatedAt())
                 .build();
     }
 

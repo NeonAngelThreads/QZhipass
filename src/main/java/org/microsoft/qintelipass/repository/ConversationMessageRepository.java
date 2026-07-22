@@ -1,7 +1,8 @@
 package org.microsoft.qintelipass.repository;
 
-import org.microsoft.qintelipass.entity.ConversationMessage;
-import org.microsoft.qintelipass.entity.ConversationMessageRole;
+
+import org.microsoft.qintelipass.models.ConversationMessage;
+import org.microsoft.qintelipass.models.ConversationMessageRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;

@@ -61,16 +61,50 @@ public class UserController {
     }
 
     @DeleteMapping("/users/{userId}")
-    public ResponseEntity<?> deactivateUser(@PathVariable Long userId) {
+    public ResponseEntity<?> cancelUser(@PathVariable Long userId) {
         if (userId == null) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid user ID"));
         }
-
+        
         boolean success = userService.deactivateUser(userId);
         if (success) {
-            return ResponseEntity.ok(Map.of("success", true, "message", "User deactivated successfully"));
+            return ResponseEntity.ok(Map.of("success", true, "message", "User cancelled successfully"));
         }
-        return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Failed to deactivate user. User may not exist or already be deactivated."));
+        return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Failed to cancel user. User may not exist or already be cancelled."));
+    }
+    
+    /**
+     * 获取当前用户信息（用于测试注销拦截）
+     * 这个接口会被 UserStatusInterceptor 拦截
+     */
+    @GetMapping("/user/profile")
+    public ResponseEntity<?> getUserProfile(@RequestHeader(value = "X-User-Id", required = false) String userIdStr) {
+        if (userIdStr == null || userIdStr.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Missing X-User-Id header"));
+        }
+        
+        Long userId;
+        try {
+            userId = Long.parseLong(userIdStr);
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid user ID format"));
+        }
+        
+        User user = userService.getUserById(userId);
+        if (user == null) {
+            return ResponseEntity.status(404).body(Map.of("success", false, "message", "User not found"));
+        }
+        
+        // 返回用户信息（会被 UserStatusInterceptor 拦截如果状态是 CANCELLED）
+        return ResponseEntity.ok(Map.of(
+            "success", true,
+            "data", Map.of(
+                "id", user.getId(),
+                "name", user.getName(),
+                "phone", user.getPhone(),
+                "status", user.getStatus()
+            )
+        ));
     }
 
     @GetMapping("/users/active/statistics")

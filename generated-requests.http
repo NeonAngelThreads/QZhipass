@@ -1,25 +1,27 @@
 ###
-POST http://localhost:7510/api/v1/auth/portal/login
+POST http://1.14.203.243/api/v1/auth/portal/login
 Content-Type: application/json
 
 {
   "loginType": "MOBILE_PWD",
   "credential": {
-    "mobile": "5768677777",
-    "password": "string"
+    "mobile": "13417596627",
+    "password": "123abc"
   }
 }
 
 
 ###
-POST http://localhost:7510/api/v1/auth/portal/register
+POST http://1.14.203.243/api/v1/auth/portal/register
 Content-Type: application/json
 
 {
-  "email": "jsdhingy@163.com",
-  "name": "Hello",
+  "email": "13417596627@qq.com",
+  "name": "sssss",
   "password": "123abc",
-  "phone": "12341757999"
+  "department": "snn",
+  "phone": "13417596627",
+  "wechat" : "dd"
 }
 
 
