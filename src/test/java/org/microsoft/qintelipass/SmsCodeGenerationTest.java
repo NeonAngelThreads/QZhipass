@@ -2,17 +2,19 @@ package org.microsoft.qintelipass;
 
 import org.junit.jupiter.api.Test;
 import org.microsoft.qintelipass.services.SmsServiceImpl;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
-@SpringBootTest
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
 public class SmsCodeGenerationTest {
-    @Autowired
-    public SmsServiceImpl smsService;
+    private final SmsServiceImpl smsService = new SmsServiceImpl();
+
     @Test
     public void testCodeValid(){
         for (int i = 0; i < 100; i++) {
-            System.out.println(smsService.getRandomCode(6));
+            String code = smsService.getRandomCode(6);
+            assertEquals(6, code.length());
+            assertTrue(code.chars().allMatch(Character::isDigit));
         }
     }
 }
