@@ -2,6 +2,7 @@ package org.microsoft.qintelipass.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
@@ -35,12 +36,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable FilterChain filterChain) throws ServletException, IOException {
-        final String authorizationHeader = request.getHeader("Authorization");
+        String jwt = resolveToken(request);
 
-        String jwt;
-
-        if (authorizationHeader != null && authorizationHeader.startsWith(JwtUtil.BEARER_PREFIX)) {
-            jwt = authorizationHeader.substring(JwtUtil.BEARER_PREFIX.length());
+        if (jwt != null) {
 
             try {
                 if (jwtUtil.validateToken(jwt)) {
@@ -62,7 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         user = userService.findByUsername(username);
                     }
 
-                    if (user != null) {
+                    if (user != null && user.isActive()) {
 //                        trafficStatService.recordTraffic(user.getId());
                         AuthenticatedUser authenticatedUser = AuthenticatedUser.builder()
                                 .userId(user.getId())
@@ -86,5 +84,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (filterChain != null) {
             filterChain.doFilter(request, response);
         }
+    }
+
+    private String resolveToken(HttpServletRequest request) {
+        String authorizationHeader = request.getHeader("Authorization");
+        if (authorizationHeader != null && authorizationHeader.startsWith(JwtUtil.BEARER_PREFIX)) {
+            return authorizationHeader.substring(JwtUtil.BEARER_PREFIX.length()).trim();
+        }
+
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("access_token".equals(cookie.getName())
+                        && cookie.getValue() != null
+                        && !cookie.getValue().isBlank()) {
+                    return cookie.getValue().trim();
+                }
+            }
+        }
+        return null;
     }
 }

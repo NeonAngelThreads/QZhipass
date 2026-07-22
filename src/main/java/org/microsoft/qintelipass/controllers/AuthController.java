@@ -13,6 +13,8 @@ import org.microsoft.qintelipass.request.RegisterRequest;
 import org.microsoft.qintelipass.response.ApiResponse;
 import org.microsoft.qintelipass.response.ConversationResponse;
 import org.microsoft.qintelipass.response.ResponseBody;
+import org.microsoft.qintelipass.security.AuthenticatedUser;
+import org.microsoft.qintelipass.security.SecurityUtil;
 import org.microsoft.qintelipass.services.ConversationService;
 import org.microsoft.qintelipass.services.SmsServiceImpl;
 import org.microsoft.qintelipass.services.UserDetailsServiceImpl;
@@ -24,6 +26,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -120,6 +123,16 @@ public class AuthController {
                 .build();
         servletResponse.addHeader(HttpHeaders.SET_COOKIE, expiredCookie.toString());
         return ApiResponse.ok("已退出登录", null);
+    }
+
+    @GetMapping("/status")
+    public ApiResponse<Map<String, Object>> status() {
+        AuthenticatedUser authenticatedUser = SecurityUtil.getCurrentAuthenticatedUser();
+        Map<String, Object> data = new LinkedHashMap<>();
+        data.put("user_id", authenticatedUser.getUserId());
+        data.put("username", authenticatedUser.getUsername());
+        data.put("role", authenticatedUser.getRole().name());
+        return ApiResponse.ok("已登录", data);
     }
 
     @PostMapping("/register")

@@ -6,6 +6,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.models.User;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataAccessException;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +39,8 @@ public class UserCacheService {
             }
         } catch (JsonProcessingException e) {
             log.error("Failed to cache user: {}", user.getId(), e);
+        } catch (DataAccessException e) {
+            log.warn("Redis unavailable while caching user {}; continuing with database data", user.getId());
         }
     }
 
@@ -46,7 +49,13 @@ public class UserCacheService {
             return null;
         }
         String userKey = USER_KEY_PREFIX + userId;
-        String userJson = redisTemplate.opsForValue().get(userKey);
+        String userJson;
+        try {
+            userJson = redisTemplate.opsForValue().get(userKey);
+        } catch (DataAccessException e) {
+            log.warn("Redis unavailable while reading user {}; falling back to database", userId);
+            return null;
+        }
         if (userJson == null) {
             return null;
         }
@@ -63,7 +72,13 @@ public class UserCacheService {
             return null;
         }
         String phoneKey = PHONE_INDEX_PREFIX + phone;
-        String userIdStr = redisTemplate.opsForValue().get(phoneKey);
+        String userIdStr;
+        try {
+            userIdStr = redisTemplate.opsForValue().get(phoneKey);
+        } catch (DataAccessException e) {
+            log.warn("Redis unavailable while reading phone index; falling back to database");
+            return null;
+        }
         if (userIdStr == null) {
             return null;
         }
@@ -71,7 +86,11 @@ public class UserCacheService {
             return getCachedUserById(Long.parseLong(userIdStr));
         } catch (NumberFormatException e) {
             log.error("Invalid user ID in cache for phone: {}", phone, e);
-            redisTemplate.delete(phoneKey);
+            try {
+                redisTemplate.delete(phoneKey);
+            } catch (DataAccessException redisException) {
+                log.warn("Redis unavailable while deleting invalid phone index");
+            }
             return null;
         }
     }
@@ -80,10 +99,14 @@ public class UserCacheService {
         if (userId == null) {
             return;
         }
-        User cachedUser = getCachedUserById(userId);
-        if (cachedUser != null && cachedUser.getPhone() != null) {
-            redisTemplate.delete(PHONE_INDEX_PREFIX + cachedUser.getPhone());
+        try {
+            User cachedUser = getCachedUserById(userId);
+            if (cachedUser != null && cachedUser.getPhone() != null) {
+                redisTemplate.delete(PHONE_INDEX_PREFIX + cachedUser.getPhone());
+            }
+            redisTemplate.delete(USER_KEY_PREFIX + userId);
+        } catch (DataAccessException e) {
+            log.warn("Redis unavailable while evicting user {}; cache eviction skipped", userId);
         }
-        redisTemplate.delete(USER_KEY_PREFIX + userId);
     }
 }
