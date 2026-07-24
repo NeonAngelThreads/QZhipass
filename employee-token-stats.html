@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>企智通 · 我的 Token 统计</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        body { font-family: 'Inter', 'Noto Sans SC', system-ui, sans-serif; }
+        .card { transition: all 0.2s cubic-bezier(0.4, 0.0, 0.2, 1); }
+        .section-header { font-weight: 600; color: #1e2937; }
+        .metric { font-variant-numeric: tabular-nums; }
+        .token-progress { height: 10px; background: linear-gradient(to right, #2563eb, #3b82f6); border-radius: 9999px; transition: width 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
+    </style>
+</head>
+<body class="bg-slate-50">
+    <!-- Top Navbar (simulates left-top user info area) -->
+    <nav class="bg-white border-b sticky top-0 z-50">
+        <div class="max-w-screen-xl mx-auto px-8">
+            <div class="h-16 flex items-center justify-between">
+                <div class="flex items-center gap-x-3">
+                    <div class="w-9 h-9 bg-blue-600 rounded-2xl flex items-center justify-center shadow-inner">
+                        <i class="fa-solid fa-robot text-white text-2xl"></i>
+                    </div>
+                    <span class="font-bold text-2xl tracking-tighter">企智通</span>
+                </div>
+
+                <!-- Prominent User Info Block (Requirement #5 - 页面左上角用户信息板块) -->
+                <div onclick="showDetailModal()" 
+                     class="flex items-center gap-x-4 px-5 py-2 bg-white hover:bg-slate-50 border border-slate-200 rounded-3xl cursor-pointer transition-all active:scale-[0.985]">
+                    <div class="flex items-center gap-x-3">
+                        <img src="https://i.pravatar.cc/36?img=28" class="w-9 h-9 rounded-2xl ring-2 ring-blue-100" alt="头像">
+                        <div class="leading-none">
+                            <div class="font-semibold text-slate-800">用户</div>
+                            <div class="text-emerald-600 text-xs flex items-center gap-x-1 mt-0.5">
+                                <i class="fa-solid fa-circle text-[8px]"></i>
+                                <span class="font-medium">普通用户 · 在线</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Token Mini Display -->
+                    <div class="pl-5 border-l border-slate-200 flex items-center gap-x-3">
+                        <div class="text-right">
+                            <div class="flex items-baseline justify-end gap-x-1 text-sm">
+                                <span id="nav-used" class="font-mono font-bold text-slate-700">0</span>
+                                <span class="text-slate-400">/</span>
+                                <span id="nav-limit" class="font-mono text-slate-500">100,000</span>
+                            </div>
+                            <div class="text-[10px] text-emerald-600 -mt-px">今日 Token</div>
+                        </div>
+                        <div class="w-11 h-2.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div id="nav-progress" class="h-2.5 bg-emerald-500 rounded-full transition-all" style="width: 0%"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex items-center gap-x-2 text-sm">
+                    <div class="w-9 h-9 bg-slate-200 rounded-2xl flex items-center justify-center cursor-pointer hover:bg-slate-300" onclick="logout()">
+                        <i class="fa-solid fa-sign-out-alt text-slate-600"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="max-w-screen-xl mx-auto px-8 pt-10 pb-16">
+        <!-- Page Title -->
+        <div class="mb-8">
+            <h1 class="text-3xl font-bold tracking-tighter text-slate-900">我的 Token 统计</h1>
+            <p class="text-slate-500 mt-1">今日用量实时展示 · 配额健康状态 · 使用趋势</p>
+        </div>
+
+        <!-- Big Personal Token Card (核心 - 左上角风格放大版) -->
+        <div class="bg-white rounded-3xl p-8 border border-slate-100 shadow-sm mb-8 card">
+            <div class="flex flex-col md:flex-row md:items-end md:justify-between gap-y-6">
+                <div>
+                    <div class="uppercase tracking-[2px] text-xs font-semibold text-blue-600 mb-1">今日个人用量</div>
+                    <div class="flex items-baseline gap-x-2">
+                        <span id="big-used" class="font-mono text-7xl font-semibold tabular-nums tracking-[-3px] text-slate-900">0</span>
+                        <span class="text-2xl text-slate-400">tokens</span>
+                    </div>
+                    <div class="text-slate-400 mt-1">限额 <span id="big-limit" class="font-mono font-medium">100,000</span></div>
+                </div>
+
+                <div class="text-right">
+                    <div id="status-badge" 
+                         class="inline-flex items-center gap-x-2 px-5 py-2 rounded-2xl text-sm font-semibold">
+                        <!-- JS injected -->
+                    </div>
+                    <div class="mt-3 text-sm">
+                        剩余可用 <span id="remaining" class="font-mono font-semibold text-emerald-600 text-lg">100,000</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Progress Bar -->
+            <div class="mt-8">
+                <div class="h-3 bg-slate-100 rounded-full overflow-hidden">
+                    <div id="big-progress" class="h-3 bg-gradient-to-r from-blue-600 to-indigo-500 rounded-full transition-all duration-700" style="width: 0%"></div>
+                </div>
+                <div class="flex justify-between text-xs text-slate-500 mt-2 font-medium">
+                    <div>0</div>
+                    <div>已使用 <span class="font-mono">0%</span></div>
+                    <div>100,000</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+            <!-- Weekly Trend -->
+            <div class="lg:col-span-3 bg-white rounded-3xl p-7 border border-slate-100 shadow-sm card">
+                <div class="section-header text-lg mb-4 flex items-center gap-x-2">
+                    <i class="fa-solid fa-chart-line text-blue-600"></i>
+                    <span>本周 Token 消耗趋势</span>
+                </div>
+                <div class="h-[220px]">
+                    <canvas id="weeklyChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Quick Info + Actions -->
+            <div class="lg:col-span-2 bg-white rounded-3xl p-7 border border-slate-100 shadow-sm card flex flex-col">
+                <div class="section-header text-lg mb-4">使用情况摘要</div>
+                
+                <div class="space-y-4 flex-1">
+                    <div class="flex justify-between text-sm py-1 border-b">
+                        <span class="text-slate-500">本月累计消耗</span>
+                        <span class="font-mono font-semibold">—</span>
+                    </div>
+                    <div class="flex justify-between text-sm py-1 border-b">
+                        <span class="text-slate-500">平均每日消耗</span>
+                        <span class="font-mono font-semibold">—</span>
+                    </div>
+                    <div class="flex justify-between text-sm py-1">
+                        <span class="text-slate-500">配额健康度</span>
+                        <span class="font-semibold text-emerald-600">—</span>
+                    </div>
+                </div>
+
+                <button onclick="tryStartChat()" 
+                        class="mt-6 w-full py-3.5 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 transition-colors text-white font-semibold rounded-2xl flex items-center justify-center gap-x-2 text-sm">
+                    <i class="fa-solid fa-comments"></i>
+                    <span>发起新对话（检测配额）</span>
+                </button>
+                
+                <p class="text-center text-[10px] text-slate-400 mt-3">调用后端接口检查配额（GET /api/v1/user/token/usage）</p>
+            </div>
+        </div>
+
+        <!-- Recent Conversations (optional but nice) -->
+        <div class="mt-8 bg-white rounded-3xl border border-slate-100 shadow-sm p-7 card">
+            <div class="section-header text-lg mb-4">最近对话 Token 消耗</div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-sm">
+                    <thead>
+                        <tr class="text-left text-slate-500 border-b">
+                            <th class="py-3 pr-6">时间</th>
+                            <th class="py-3 pr-6">Agent / 模型</th>
+                            <th class="py-3 pr-6">对话内容</th>
+                            <th class="py-3 text-right">消耗 Tokens</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y text-slate-700">
+                        <tr>
+                            <td colspan="4" class="py-6 text-center text-slate-400 text-sm">
+                                暂无数据（需调用后端接口加载）
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail Modal -->
+    <div id="detail-modal" onclick="if(event.target.id==='detail-modal') hideModal()" class="hidden fixed inset-0 bg-black/40 z-[100] flex items-center justify-center">
+        <div onclick="event.stopImmediatePropagation()" class="bg-white w-full max-w-md mx-4 rounded-3xl overflow-hidden shadow-2xl">
+            <div class="px-6 py-5 border-b flex justify-between items-center">
+                <div class="font-semibold">我的 Token 详情</div>
+                <button onclick="hideModal()" class="text-2xl leading-none text-slate-400 hover:text-slate-600">×</button>
+            </div>
+            <div class="p-6 space-y-4 text-sm">
+                <div class="flex justify-between"><span class="text-slate-500">今日已用</span><span class="font-mono font-semibold">0 tokens</span></div>
+                <div class="flex justify-between"><span class="text-slate-500">当日限额</span><span class="font-mono font-semibold">100,000 tokens</span></div>
+                <div class="flex justify-between border-t pt-4"><span class="text-slate-500">剩余可用</span><span class="font-mono font-semibold text-emerald-600">100,000 tokens</span></div>
+                <div class="pt-2">
+                    <div class="text-xs text-slate-500 mb-1">本月累计</div>
+                    <div class="font-mono text-3xl font-semibold">—</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==================== 模拟后端接口层（真实项目请替换成 axios 请求） ====================
+        const mockApi = {
+            // 获取当前用户今日 Token 用量（对应 GET /api/v1/user/token/usage）
+            async getUserTokenUsage() {
+                await new Promise(r => setTimeout(r, 280)); // 模拟网络延迟
+                return {
+                    daily_limit: 100000,
+                    used_today: 0,           // 初始干净状态，无数据
+                    remaining: 100000,
+                    status: "normal"
+                };
+            },
+
+            // 发起对话前检查配额（可选接口，或直接在 chat 接口里返回）
+            async checkTokenBeforeChat() {
+                await new Promise(r => setTimeout(r, 150));
+                const res = await this.getUserTokenUsage();
+                return res.used_today < res.daily_limit;
+            }
+        };
+
+        let currentUser = {
+            used: 0,
+            limit: 100000
+        };
+
+        async function updateDisplays() {
+            // 真实项目：调用 mockApi.getUserTokenUsage() 或 axios.get('/api/v1/user/token/usage')
+            const data = await mockApi.getUserTokenUsage();
+            currentUser.used = data.used_today;
+            currentUser.limit = data.daily_limit;
+
+            const used = currentUser.used;
+            const limit = currentUser.limit;
+            const percent = Math.min((used / limit) * 100, 100);
+            const remaining = limit - used;
+
+            // Nav
+            document.getElementById('nav-used').textContent = used.toLocaleString();
+            document.getElementById('nav-limit').textContent = limit.toLocaleString();
+            const navProg = document.getElementById('nav-progress');
+            navProg.style.width = percent + '%';
+            if (percent > 90) navProg.style.background = 'linear-gradient(to right, #dc2626, #f87171)';
+            else if (percent > 70) navProg.style.background = 'linear-gradient(to right, #ca8a04, #fbbf24)';
+            else navProg.style.background = 'linear-gradient(to right, #16a34a, #4ade80)';
+
+            // Big card
+            document.getElementById('big-used').textContent = used.toLocaleString();
+            document.getElementById('big-limit').textContent = limit.toLocaleString();
+            document.getElementById('remaining').textContent = remaining.toLocaleString();
+            document.getElementById('big-progress').style.width = percent + '%';
+
+            // Status badge
+            const badge = document.getElementById('status-badge');
+            let html = '';
+            if (percent > 95) {
+                html = `<span class="px-5 py-2 bg-red-100 text-red-700 rounded-2xl flex items-center gap-x-2"><i class="fa-solid fa-ban"></i> 已超额，请联系管理员</span>`;
+            } else if (percent > 80) {
+                html = `<span class="px-5 py-2 bg-amber-100 text-amber-700 rounded-2xl flex items-center gap-x-2"><i class="fa-solid fa-exclamation-triangle"></i> 用量较高，注意控制</span>`;
+            } else {
+                html = `<span class="px-5 py-2 bg-emerald-100 text-emerald-700 rounded-2xl flex items-center gap-x-2"><i class="fa-solid fa-check-double"></i> 用量正常</span>`;
+            }
+            badge.innerHTML = html;
+        }
+
+        function initWeeklyChart() {
+            const ctx = document.getElementById('weeklyChart');
+
+            // 动态生成近7天日期 + 星期（随当前日期变化）
+            const labels = [];
+            const weekdays = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+            const today = new Date();
+            for (let i = 6; i >= 0; i--) {
+                const d = new Date(today);
+                d.setDate(today.getDate() - i);
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                const weekday = weekdays[d.getDay()];
+                labels.push(`${month}-${day} ${weekday}`);
+            }
+
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: '个人消耗',
+                        data: [0, 0, 0, 0, 0, 0, 0],  // 初始干净状态，真实数据从后端接口获取
+                        backgroundColor: '#2563eb',
+                        borderRadius: 6,
+                        barThickness: 28
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { 
+                        legend: { display: false },
+                        tooltip: { callbacks: { label: (c) => c.raw.toLocaleString() + ' tokens' } }
+                    },
+                    scales: {
+                        x: { 
+                            grid: { display: false, drawBorder: false },
+                            borderColor: '#e2e8f0'
+                        },
+                        y: { 
+                            grid: { color: '#f1e7ff', lineWidth: 0.5 },
+                            borderColor: '#e2e8f0',
+                            ticks: { callback: v => v.toLocaleString() }
+                        }
+                    }
+                }
+            });
+        }
+
+        function showDetailModal() {
+            document.getElementById('detail-modal').classList.remove('hidden');
+            document.getElementById('detail-modal').classList.add('flex');
+        }
+        function hideModal() {
+            const m = document.getElementById('detail-modal');
+            m.classList.remove('flex');
+            m.classList.add('hidden');
+        }
+
+        async function tryStartChat() {
+            // 真实项目应该先调用 mockApi.checkTokenBeforeChat() 或直接调用聊天接口
+            const canChat = await mockApi.checkTokenBeforeChat();
+            
+            if (!canChat) {
+                const modal = document.createElement('div');
+                modal.className = `fixed inset-0 bg-black/60 z-[200] flex items-center justify-center`;
+                modal.innerHTML = `
+                    <div class="bg-white max-w-sm mx-4 rounded-3xl p-7 text-center">
+                        <i class="fa-solid fa-ban text-red-500 text-6xl mb-5"></i>
+                        <div class="font-bold text-2xl mb-2">今日 Token 已用尽</div>
+                        <p class="text-slate-600 text-sm mb-6">按系统规则，今日用量已达到限额，无法发起新对话。<br>请联系管理员调整限额或明日再试。</p>
+                        <div class="flex gap-3">
+                            <button onclick="this.closest('.fixed').remove()" class="flex-1 py-3 border rounded-2xl text-sm">我知道了</button>
+                            <button onclick="window.location.href='admin-token-dashboard.html'; this.closest('.fixed').remove()" 
+                                    class="flex-1 py-3 bg-blue-600 text-white rounded-2xl text-sm">去管理员后台调整</button>
+                        </div>
+                    </div>`;
+                document.body.appendChild(modal);
+            } else {
+                const toast = document.createElement('div');
+                toast.className = `fixed bottom-6 right-6 px-6 py-3.5 bg-emerald-600 text-white rounded-2xl shadow-xl flex items-center gap-x-3 text-sm`;
+                toast.innerHTML = `<i class="fa-solid fa-check-circle"></i> <span>配额检查通过！正在打开对话窗口...</span>`;
+                document.body.appendChild(toast);
+                setTimeout(() => {
+                    toast.style.transition = 'all .2s';
+                    toast.style.opacity = '0';
+                    setTimeout(() => toast.remove(), 200);
+                    alert('（模拟）已进入知识库对话界面，SSE 流式输出已开启');
+                }, 1600);
+            }
+        }
+
+        function logout() {
+            if (confirm('退出演示？')) location.reload();
+        }
+
+        async function init() {
+            await updateDisplays();   // 从模拟接口获取最新数据
+            initWeeklyChart();
+            
+            // 真实项目中这里可以加定时刷新（每 30 秒或 1 分钟拉一次用量）
+            // setInterval(async () => { await updateDisplays(); }, 30000);
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>

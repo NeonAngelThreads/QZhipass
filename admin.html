@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>企智通 - 用户管理</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+
+  <!-- 字体 -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Geist:wght@400;500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind 配置 -->
+  <script>
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          colors: {
+            "sec-fixed":        "#d8e2ff",
+            "err-container":    "#ffdad6",
+            "bg":               "#f7f9fb",
+            "out-var":          "#c5c6cd",
+            "on-sec":           "#ffffff",
+            "on-pri":           "#ffffff",
+            "on-sur-var":       "#44474d",
+            "sur-var":          "#e0e3e5",
+            "out-line":          "#75777e",
+            "sur-con":          "#eceef0",
+            "sec-fixed-dim":    "#adc6ff",
+            "sur-con-highest":  "#e0e3e5",
+            "on-sec-con":       "#fefcff",
+            "sur-dim":          "#d8dadc",
+            "sur-bright":       "#f7f9fb",
+            "sur-con-high":     "#e6e8ea",
+            "sur-lowest":       "#ffffff",
+            "on-sur":           "#191c1e",
+            "error":            "#ba1a1a",
+            "on-error":         "#ffffff",
+            "sec":              "#0058bc",
+            "sur-con-low":      "#f2f4f6",
+            "sec-con":          "#0070eb",
+            "sur":              "#f7f9fb"
+          },
+          borderRadius: {
+            DEFAULT: "0.25rem",
+            lg: "0.5rem",
+            xl: "0.75rem",
+            full: "9999px"
+          },
+          spacing: {
+            "md":  "24px",
+            "xs":  "8px",
+            "xl":  "48px",
+            "base":"4px",
+            "sm":  "16px",
+            "lg":  "32px"
+          },
+          fontFamily: {
+            sans: ["Inter", "sans-serif"],
+            mono: ["Geist", "monospace"]
+          },
+          fontSize: {
+            "h-lg":  ["32px", { lineHeight: "1.3", letterSpacing: "-0.01em", fontWeight: "600" }],
+            "h-md":  ["20px", { lineHeight: "1.4", fontWeight: "600" }],
+            "b-sm":  ["14px", { lineHeight: "1.5", fontWeight: "400" }],
+            "lbl":   ["13px", { lineHeight: "1.2", letterSpacing: "0.02em", fontWeight: "500" }],
+            "b-lg":  ["16px", { lineHeight: "1.6", fontWeight: "400" }],
+            "disp":  ["48px", { lineHeight: "1.2", letterSpacing: "-0.02em", fontWeight: "700" }]
+          }
+        }
+      }
+    }
+  </script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body class="bg-bg text-on-sur font-sans overflow-hidden h-screen flex">
+  <!-- 侧边栏 -->
+  <aside class="w-[280px] h-screen fixed left-0 top-0 bg-sur-lowest border-r border-out-var flex flex-col z-50">
+    <div class="p-md flex items-center gap-sm">
+      <div class="w-10 h-10 bg-sec flex items-center justify-center rounded-lg">
+        <span class="material-symbols-outlined text-on-sec" style="font-variation-settings:'FILL' 1;">smart_toy</span>
+      </div>
+      <div>
+        <h1 class="text-h-md font-bold text-sec">企智通</h1>
+        <p class="text-lbl text-on-sur-var font-mono">Enterprise AI Orchestration</p>
+      </div>
+    </div>
+
+    <nav class="flex-1 px-sm space-y-base overflow-y-auto mt-sm">
+      <a href="#" class="flex items-center gap-sm p-sm rounded-lg text-on-sur-var hover:bg-sur-con-high hover:text-on-sur transition-all duration-200">
+        <span class="material-symbols-outlined">dashboard</span>
+        <span class="text-lbl font-mono">仪表盘</span>
+      </a>
+      <a href="#" class="flex items-center gap-sm p-sm rounded-lg bg-sec-con text-on-sec-con font-bold active:scale-[0.98] transition-transform">
+        <span class="material-symbols-outlined">group</span>
+        <span class="text-lbl font-mono">用户管理</span>
+      </a>
+      <a href="#" class="flex items-center gap-sm p-sm rounded-lg text-on-sur-var hover:bg-sur-con-high hover:text-on-sur transition-all">
+        <span class="material-symbols-outlined">security</span>
+        <span class="text-lbl font-mono">安全监控</span>
+      </a>
+      <a href="#" class="flex items-center gap-sm p-sm rounded-lg text-on-sur-var hover:bg-sur-con-high hover:text-on-sur transition-all">
+        <span class="material-symbols-outlined">bar_chart</span>
+        <span class="text-lbl font-mono">用量分析</span>
+      </a>
+      <a href="#" class="flex items-center gap-sm p-sm rounded-lg text-on-sur-var hover:bg-sur-con-high hover:text-on-sur transition-all">
+        <span class="material-symbols-outlined">settings</span>
+        <span class="text-lbl font-mono">系统设置</span>
+      </a>
+    </nav>
+
+    <div class="p-sm border-t border-out-var space-y-xs">
+      <div class="px-sm py-xs">
+        <div class="flex justify-between items-center mb-xs">
+          <span class="text-lbl font-mono text-on-sur-var">Token 额度</span>
+          <span class="text-lbl font-mono text-sec">82%</span>
+        </div>
+        <div class="w-full bg-sur-con-high rounded-full h-1.5 overflow-hidden">
+          <div class="bg-sec h-full w-[82%] relative">
+            <div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+          </div>
+        </div>
+      </div>
+      <button class="w-full flex items-center gap-sm p-sm rounded-lg text-error hover:bg-red-50 transition-all">
+        <span class="material-symbols-outlined">logout</span>
+        <span class="text-lbl font-mono">退出登录</span>
+      </button>
+    </div>
+  </aside>
+
+  <!-- 主内容区 -->
+  <main class="ml-[280px] flex-1 flex flex-col h-screen overflow-hidden">
+    <header class="h-16 flex justify-between items-center px-lg bg-sur-bright/80 backdrop-blur-md border-b border-out-var z-40 sticky top-0">
+      <div class="flex-1 max-w-md">
+        <div class="relative group">
+          <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-sur-var group-focus-within:text-sec">search</span>
+          <input
+            type="text"
+            placeholder="搜索用户（姓名/手机号）..."
+            oninput="api.searchUsers(this.value)"
+            class="w-full pl-10 pr-4 py-2 bg-sur-con-low border border-out-var rounded-full text-b-sm focus:outline-none focus:ring-2 focus:ring-sec/20 focus:border-sec transition-all"
+          />
+        </div>
+      </div>
+
+      <div class="flex items-center gap-sm ml-lg">
+        <button class="p-2 hover:bg-sur-con-high rounded-full transition-all relative">
+          <span class="material-symbols-outlined">notifications</span>
+          <span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-sur-bright"></span>
+        </button>
+        <button class="p-2 hover:bg-sur-con-high rounded-full transition-all">
+          <span class="material-symbols-outlined">help</span>
+        </button>
+        <div class="h-8 w-px bg-out-var mx-2"></div>
+        <div class="flex items-center gap-xs cursor-pointer hover:bg-sur-con-high p-1 pr-3 rounded-full transition-all">
+          <img
+            class="w-8 h-8 rounded-full border border-out-var object-cover"
+            src="https://lh3.googleusercontent.com/aida-public/AB6AXuCQD4JZsjvnwvlr_eMVho_Ptl8Aj2Myr8wYRjWhmv8DjGCSg8qlfGsWMUTl7ldLpd7GHAWxkL93UwNJK_LsQ0QvpKNjCIvkxkNgk18zoCZXI1pPzberqe0Vr2QuCML8I-D9XWcZydoTErnb4dEWHG5r-XzGNWUda_kYc8K4OaqvQhgg28I7_GhmUBtJ588suogkG_sfg5phbTyS-bHZXG1D4orrz5nK_rP6auooWDG7pPU7bhbwkaPApiaIBkNR_42Fl7Lk6kQFSPQ"
+            alt="管理员头像"
+          />
+          <div class="hidden lg:block text-right">
+            <p class="text-lbl font-mono text-on-sur leading-tight">管理员</p>
+            <p class="text-[10px] text-on-sur-var">超级管理员</p>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <div class="flex-1 overflow-y-auto p-lg space-y-lg">
+      <div class="flex justify-between items-end">
+        <div>
+          <h2 class="text-h-lg text-on-sur">用户管理</h2>
+          <p class="text-on-sur-var mt-1">管理企业成员权限、状态及 AI 资源使用情况</p>
+        </div>
+        <button
+          onclick="openModal('createModal')"
+          class="bg-sec text-on-sec px-sm py-2 rounded-lg text-lbl font-mono flex items-center gap-xs shadow-md active:scale-95 transition-all"
+        >
+          <span class="material-symbols-outlined text-sm">person_add</span>
+          <span>添加用户</span>
+        </button>
+      </div>
+
+      <!-- 统计卡片 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-sm">
+        <div class="bg-sur-lowest p-md rounded-xl border border-out-var shadow-sm flex flex-col gap-xs">
+          <div class="flex justify-between items-start">
+            <span class="text-lbl font-mono text-on-sur-var">总用户数</span>
+            <span class="material-symbols-outlined text-sec" style="font-variation-settings:'FILL' 1;">groups</span>
+          </div>
+          <div class="flex items-baseline gap-xs">
+            <span class="text-disp text-on-sur" id="totalUsers">0</span>
+          </div>
+        </div>
+        <div class="bg-sur-lowest p-md rounded-xl border border-out-var shadow-sm flex flex-col gap-xs">
+          <div class="flex justify-between items-start">
+            <span class="text-lbl font-mono text-on-sur-var">今日活跃</span>
+            <span class="material-symbols-outlined text-sec" style="font-variation-settings:'FILL' 1;">bolt</span>
+          </div>
+          <div class="flex items-baseline gap-xs">
+            <span class="text-disp text-on-sur" id="activeToday">0</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 用户列表表格 -->
+      <div class="bg-sur-lowest border border-out-var rounded-xl overflow-hidden shadow-sm">
+        <table class="w-full text-left border-collapse">
+          <thead class="bg-sur-con-low text-on-sur-var text-lbl font-mono uppercase tracking-wider">
+            <tr>
+              <th class="px-lg py-sm font-semibold">姓名</th>
+              <th class="px-lg py-sm font-semibold">手机号</th>
+              <th class="px-lg py-sm font-semibold">微信OpenID</th>
+              <th class="px-lg py-sm font-semibold">状态</th>
+              <th class="px-lg py-sm font-semibold text-right">操作</th>
+            </tr>
+          </thead>
+          <tbody id="userTableBody" class="divide-y divide-out-var">
+            <!-- 动态渲染 -->
+          </tbody>
+        </table>
+
+        <div class="px-lg py-sm bg-sur-con-low flex justify-between items-center border-t border-out-var">
+          <span id="paginationInfo" class="text-lbl font-mono text-on-sur-var">共 0 条记录</span>
+          <div id="paginationBtns" class="flex items-center gap-1">
+            <!-- 动态渲染 -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="p-sm border-t border-out-var bg-sur-bright">
+      <div class="flex justify-between items-center px-md text-[11px] text-on-sur-var">
+        <span>© 2023 企智通企业 AI 平台. 版权所有。</span>
+        <div class="space-x-md">
+          <a href="#" class="hover:text-sec">隐私政策</a>
+          <a href="#" class="hover:text-sec">服务条款</a>
+          <a href="#" class="hover:text-sec">系统反馈</a>
+        </div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- 弹窗：创建账户 -->
+  <div id="createModal" class="modal fixed inset-0 z-[100] items-center justify-center p-sm">
+    <div class="modal-mask absolute inset-0" onclick="closeModal('createModal')"></div>
+    <div class="bg-sur-lowest w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden relative">
+      <div class="p-lg border-b border-out-var flex justify-between items-center">
+        <h3 class="text-h-md text-on-sur">添加新用户</h3>
+        <button class="hover:bg-sur-con-high p-1 rounded-full" onclick="closeModal('createModal')">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="p-lg space-y-md max-h-[70vh] overflow-y-auto">
+        <div class="grid grid-cols-2 gap-md">
+          <div class="space-y-xs">
+            <label class="text-lbl font-mono text-on-sur">姓名</label>
+            <input type="text" id="userName" placeholder="请输入姓名" class="w-full px-sm py-2 bg-sur-con-low border border-out-var rounded-lg text-b-sm focus:ring-sec focus:border-sec" />
+          </div>
+          <div class="space-y-xs">
+            <label class="text-lbl font-mono text-on-sur">手机号</label>
+            <input type="tel" id="userPhone" placeholder="请输入手机号" class="w-full px-sm py-2 bg-sur-con-low border border-out-var rounded-lg text-b-sm focus:ring-sec focus:border-sec" />
+          </div>
+        </div>
+        <div class="space-y-xs">
+          <label class="text-lbl font-mono text-on-sur">微信OpenID</label>
+          <input type="text" id="userWechat" placeholder="请输入微信OpenID" class="w-full px-sm py-2 bg-sur-con-low border border-out-var rounded-lg text-b-sm focus:ring-sec focus:border-sec" />
+        </div>
+      </div>
+      <div class="p-lg border-t border-out-var bg-sur-con-low flex justify-end gap-sm">
+        <button onclick="closeModal('createModal')" class="px-lg py-2 border border-out-var rounded-lg text-lbl font-mono hover:bg-sur-con-high transition-all">取消</button>
+        <button onclick="api.createUser()" class="px-lg py-2 bg-sec text-on-sec rounded-lg text-lbl font-mono shadow-md active:scale-95 transition-all">创建账户</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 弹窗：注销确认 -->
+  <div id="deactivateModal" class="modal fixed inset-0 z-[100] items-center justify-center p-sm">
+    <div class="modal-mask absolute inset-0" onclick="closeModal('deactivateModal')"></div>
+    <div class="bg-sur-lowest w-full max-w-md rounded-2xl shadow-2xl overflow-hidden relative">
+      <div class="p-lg border-b border-out-var flex justify-between items-center">
+        <h3 class="text-h-md text-on-sur">注销用户确认</h3>
+        <button class="hover:bg-sur-con-high p-1 rounded-full" onclick="closeModal('deactivateModal')">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="p-lg space-y-md">
+        <div class="flex items-start gap-sm text-error">
+          <span class="material-symbols-outlined text-3xl">warning</span>
+          <p class="text-b-sm text-on-sur-var">
+            确定要注销用户 <span id="deactivateUserName" class="font-bold text-on-sur"></span> 吗？注销后该账号将立即失效，用户将无法登录系统，且该操作不可撤销。
+          </p>
+        </div>
+        <label class="flex items-center gap-sm cursor-pointer group">
+          <input id="deactivateCheck" type="checkbox" class="w-4 h-4 rounded border-out-var text-error focus:ring-error" />
+          <span class="text-lbl font-mono text-on-sur-var group-hover:text-on-sur transition-colors">我已了解注销风险，确认执行。</span>
+        </label>
+      </div>
+      <div class="p-lg border-t border-out-var bg-sur-con-low flex justify-end gap-sm">
+        <button onclick="closeModal('deactivateModal')" class="px-lg py-2 border border-out-var rounded-lg text-lbl font-mono hover:bg-sur-con-high transition-all">取消</button>
+        <button onclick="api.deactivateUser()" class="px-lg py-2 bg-error text-on-error rounded-lg text-lbl font-mono shadow-md active:scale-95 transition-all">确认注销</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript -->
+  <script>
+    /* ================================================================
+       配置
+       ================================================================ */
+    const API_BASE_URL = 'http://localhost:7511';
+    const ADMIN_KEY = 'admin-secret-key';
+
+    /* ================================================================
+       用户数据（从后端获取）
+       ================================================================ */
+    let userList = [];
+
+    /* ---- 弹窗工具函数 ---- */
+    function openModal(id)  { document.getElementById(id).classList.add('open'); }
+    function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+    /* ---- 当前待注销用户的 id ---- */
+    let deactivateUserId = null;
+
+    /* ---- 注销弹窗：写入用户名后打开 ---- */
+    function openDeactivateModal(userId) {
+      const u = userList.find(item => item.id === userId);
+      if (!u) return;
+      document.getElementById('deactivateUserName').textContent = u.name;
+      document.getElementById('deactivateCheck').checked = false;
+      deactivateUserId = userId;
+      openModal('deactivateModal');
+    }
+
+    /* ---- 分页状态 ---- */
+    const PAGE_SIZE = 5;
+    let currentPage = 1;
+
+    /* ---- 渲染表格 ---- */
+    function renderTable(list) {
+      const tbody  = document.getElementById('userTableBody');
+      const start  = (currentPage - 1) * PAGE_SIZE;
+      const page   = list.slice(start, start + PAGE_SIZE);
+
+      if (!list || list.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="px-lg py-xl text-center text-on-sur-var">暂无用户数据</td></tr>';
+      } else {
+        tbody.innerHTML = page.map(u => {
+          const initial   = u.name ? u.name.charAt(0) : '?';
+          const isDeactivated = u.status === 'CANCELLED';
+          const statusCls = isDeactivated ? 'text-error font-bold' : 'text-[#1a8a3f]';
+          const statusDot = isDeactivated ? 'bg-error' : 'bg-[#1a8a3f]';
+          const statusTxt = isDeactivated ? '已注销' : (u.status === 'FROZEN' ? '已冻结' : '正常');
+          const deactivateBtn = isDeactivated
+            ? '<span class="text-on-sur-var opacity-50">已注销</span>'
+            : `<button onclick="openDeactivateModal(${u.id})" class="text-error hover:underline text-lbl font-mono">注销</button>`;
+          const avatarBg = isDeactivated ? 'bg-sur-con-highest text-on-sur-var' : 'bg-sec-fixed text-sec';
+          return `<tr class="hover:bg-sur-con-low transition-colors" data-user-id="${u.id}">
+            <td class="px-lg py-md flex items-center gap-sm">
+              <div class="w-8 h-8 rounded-full ${avatarBg} flex items-center justify-center font-bold text-xs">${initial}</div>
+              <div>
+                <p class="text-lbl font-mono text-on-sur">${u.name || '未命名'}</p>
+                <p class="text-[10px] text-on-sur-var">ID: ${u.id}</p>
+              </div>
+            </td>
+            <td class="px-lg py-md text-b-sm text-on-sur-var">${u.phone || '-'}</td>
+            <td class="px-lg py-md text-b-sm text-on-sur-var">${u.wechat || '-'}</td>
+            <td class="px-lg py-md">
+              <span class="flex items-center gap-base text-xs ${statusCls} font-medium">
+                <span class="w-1.5 h-1.5 rounded-full ${statusDot}"></span> ${statusTxt}
+              </span>
+            </td>
+            <td class="px-lg py-md text-right space-x-sm">
+              ${deactivateBtn}
+            </td>
+          </tr>`;
+        }).join('');
+      }
+      renderPagination(list.length);
+      updateStatistics(list);
+    }
+
+    /* ---- 更新统计卡片 ---- */
+    function updateStatistics(list) {
+      const total = list.length;
+      document.getElementById('totalUsers').textContent = total;
+      // TODO: 今日活跃数据待后端接口支持
+    }
+
+    /* ---- 渲染分页按钮 ---- */
+    function renderPagination(total) {
+      const totalPages = Math.ceil(total / PAGE_SIZE) || 1;
+
+      const start = Math.min((currentPage - 1) * PAGE_SIZE + 1, total);
+      const end   = Math.min(currentPage * PAGE_SIZE, total);
+      document.getElementById('paginationInfo').textContent =
+        `显示 ${start} 到 ${end} 条，共 ${total} 条记录`;
+
+      const container = document.getElementById('paginationBtns');
+      let html = '';
+
+      html += `<button class="p-1 hover:bg-sur-con-high rounded disabled:opacity-30" ${currentPage <= 1 ? 'disabled' : ''} onclick="goToPage(${currentPage - 1})">
+        <span class="material-symbols-outlined text-sm">chevron_left</span>
+      </button>`;
+
+      for (let i = 1; i <= totalPages; i++) {
+        const activeCls = i === currentPage
+          ? 'bg-sec text-on-sec'
+          : 'hover:bg-sur-con-high text-on-sur';
+        html += `<button class="w-8 h-8 rounded ${activeCls} text-xs font-bold" onclick="goToPage(${i})">${i}</button>`;
+      }
+
+      html += `<button class="p-1 hover:bg-sur-con-high rounded disabled:opacity-30" ${currentPage >= totalPages ? 'disabled' : ''} onclick="goToPage(${currentPage + 1})">
+        <span class="material-symbols-outlined text-sm">chevron_right</span>
+      </button>`;
+
+      container.innerHTML = html;
+    }
+
+    /* ---- 翻页 ---- */
+    function goToPage(page) {
+      const totalPages = Math.ceil(userList.length / PAGE_SIZE) || 1;
+      if (page < 1 || page > totalPages) return;
+      currentPage = page;
+      renderTable(userList);
+    }
+
+    /* ================================================================
+       后端接口对接
+       ================================================================ */
+    const api = {
+      /**
+       * 获取用户列表
+       */
+      fetchUsers() {
+        console.log('[API] 正在获取用户列表...', API_BASE_URL);
+        
+        fetch(`${API_BASE_URL}/api/admin/users`, {
+          headers: {
+            'X-Admin-Key': ADMIN_KEY
+          }
+        })
+          .then(r => { 
+            console.log('[API] 响应状态:', r.status);
+            if (!r.ok) throw new Error(`HTTP ${r.status}`); 
+            return r.json(); 
+          })
+          .then(res => {
+            console.log('[API] 获取成功:', res);
+            // 后端返回格式: { total: 100, items: [...] }
+            userList = res.items || res.data || res;
+            currentPage = 1;
+            renderTable(userList);
+          })
+          .catch((error) => {
+            console.error('[API] 获取用户列表失败:', error);
+            alert(`无法连接到后端服务器！\n\n错误: ${error.message}\n\n请：\n1. 确保后端已启动（localhost:7511）\n2. 检查浏览器控制台（F12）查看详细错误`);
+          });
+      },
+
+      /**
+       * 搜索用户
+       */
+      searchUsers(keyword) {
+        if (!keyword || keyword.trim() === '') {
+          // 如果搜索框为空，重新获取所有用户
+          api.fetchUsers();
+          return;
+        }
+
+        fetch(`${API_BASE_URL}/api/admin/users?q=${encodeURIComponent(keyword)}`, {
+          headers: {
+            'X-Admin-Key': ADMIN_KEY
+          }
+        })
+          .then(r => { 
+            if (!r.ok) throw new Error('Backend fail'); 
+            return r.json(); 
+          })
+          .then(res => {
+            userList = res.items || res.data || res;
+            currentPage = 1;
+            renderTable(userList);
+          })
+          .catch((error) => {
+            console.error('[API] 搜索用户失败:', error);
+          });
+      },
+
+      /**
+       * 注销用户
+       */
+      deactivateUser() {
+        const confirmed = document.getElementById('deactivateCheck').checked;
+        if (!confirmed) {
+          alert('请先勾选确认框');
+          return;
+        }
+        const uid = deactivateUserId;
+        deactivateUserId = null;
+        closeModal('deactivateModal');
+
+        fetch(`${API_BASE_URL}/api/admin/users/${uid}`, {
+          method: 'DELETE',
+          headers: {
+            'X-Admin-Key': ADMIN_KEY
+          }
+        })
+          .then(r => { 
+            if (!r.ok) throw new Error('Backend fail'); 
+            return r.json(); 
+          })
+          .then(() => {
+            api.fetchUsers();
+            alert('用户注销成功！');
+          })
+          .catch((error) => {
+            console.error('[API] 注销用户失败:', error);
+            alert('注销失败，请稍后重试');
+          });
+      },
+
+      /**
+       * 创建用户（待后端实现）
+       */
+      createUser() {
+        const name = document.getElementById('userName').value;
+        const phone = document.getElementById('userPhone').value;
+        const wechatOpenId = document.getElementById('userWechat').value;
+        
+        if (!name || !phone) {
+          alert('请填写姓名和手机号');
+          return;
+        }
+
+        // TODO: 调用后端接口
+        alert('创建用户功能待后端实现');
+        closeModal('createModal');
+      }
+    };
+
+    /* ---- 页面初始化 ---- */
+    api.fetchUsers();
+  </script>
+
+  <style>
+    .modal { display: none; background: rgba(0, 0, 0, 0.5); }
+    .modal.open { display: flex; }
+    .tr-hover:hover { background-color: rgba(0, 0, 0, 0.02); }
+  </style>
+</body>
+</html>
