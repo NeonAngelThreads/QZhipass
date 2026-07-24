@@ -7,6 +7,7 @@ import org.microsoft.qintelipass.CredentialManager;
 import org.microsoft.qintelipass.ILoginStrategy;
 import org.microsoft.qintelipass.IRegisterable;
 import org.microsoft.qintelipass.LoginStrategyFactory;
+import org.microsoft.qintelipass.configs.AdminProperties;
 import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.request.LoginRequest;
@@ -17,6 +18,7 @@ import org.microsoft.qintelipass.services.AuthTokenService;
 import org.microsoft.qintelipass.services.ConversationService;
 import org.microsoft.qintelipass.services.SmsServiceImpl;
 import org.microsoft.qintelipass.services.UserDetailsServiceImpl;
+import org.microsoft.qintelipass.services.UserService;
 import org.microsoft.qintelipass.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
@@ -46,15 +48,17 @@ public class AuthController {
     @Autowired
     private IRegisterable registerService;
     private final ConversationService conversationService;
+    private final AdminProperties adminProperties;
 
     @Autowired
-    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager, ConversationService conversationService) {
+    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager, ConversationService conversationService, AdminProperties adminProperties) {
         this.factory = factory;
         this.smsService = smsService;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.credentialManager = credentialManager;
         this.conversationService = conversationService;
+        this.adminProperties = adminProperties;
     }
 
     @CrossOrigin
@@ -78,11 +82,13 @@ public class AuthController {
                         .build();
                 httpResponse.addHeader(HttpHeaders.SET_COOKIE, auth.toString());
                 ConversationResponse conversation = conversationService.createInitialConversation(user.getId());
+                String role = adminProperties.isAdmin(user.getPhone()) ? "ADMIN" : "USER";
 
                 return ResponseEntity.ok(Map.of(
                         "success", true,
                         "data", UserDTO.fromUser(user),
                         "token", token,
+                        "role", role,
                         "conversation", conversation,
                         "initialConversationId", conversation.id()
                 ));
@@ -171,15 +177,21 @@ class AuthControllerV2 {
     private final LoginStrategyFactory factory;
     private final AuthTokenService authTokenService;
     private final ConversationService conversationService;
+    private final AdminProperties adminProperties;
+    private final UserService userService;
 
     public AuthControllerV2(
             LoginStrategyFactory factory,
             AuthTokenService authTokenService,
-            ConversationService conversationService
+            ConversationService conversationService,
+            AdminProperties adminProperties,
+            UserService userService
     ) {
         this.factory = factory;
         this.authTokenService = authTokenService;
         this.conversationService = conversationService;
+        this.adminProperties = adminProperties;
+        this.userService = userService;
     }
 
     @PostMapping("/login")
@@ -194,7 +206,8 @@ class AuthControllerV2 {
             Long userId = extractUserId(response, params);
             String accessToken = authTokenService.issueToken(userId);
             ConversationResponse conversation = conversationService.createInitialConversation(userId);
-            response.setPayload(buildLoginData(userId, accessToken, conversation));
+            String role = resolveUserRole(userId);
+            response.setPayload(buildLoginData(userId, accessToken, conversation, role));
 
             ResponseCookie accessTokenCookie = ResponseCookie.from("access_token", accessToken)
                     .httpOnly(true)
@@ -257,13 +270,23 @@ class AuthControllerV2 {
     private Map<String, Object> buildLoginData(
             Long userId,
             String accessToken,
-            ConversationResponse conversation
+            ConversationResponse conversation,
+            String role
     ) {
         Map<String, Object> data = new LinkedHashMap<>();
         data.put("user_id", userId);
         data.put("access_token", accessToken);
+        data.put("role", role);
         data.put("initialConversationId", conversation.id());
         data.put("conversation", conversation);
         return data;
+    }
+
+    private String resolveUserRole(Long userId) {
+        User user = userService.getUserById(userId);
+        if (user != null && adminProperties.isAdmin(user.getPhone())) {
+            return "ADMIN";
+        }
+        return "USER";
     }
 }
