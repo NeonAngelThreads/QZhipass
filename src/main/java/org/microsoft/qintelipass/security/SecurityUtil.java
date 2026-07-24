@@ -49,4 +49,16 @@ public class SecurityUtil {
             throw new SecurityException("User not authenticated");
         }
     }
+
+    public static boolean isAdmin() {
+        AuthenticatedUser user = getCurrentAuthenticatedUser();
+        return user != null && user.getRole() != null
+                && "ADMIN".equals(user.getRole().name());
+    }
+
+    public static void requireAdmin() {
+        if (!isAdmin()) {
+            throw new SecurityException("Admin permission required");
+        }
+    }
 }
