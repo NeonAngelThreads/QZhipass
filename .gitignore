@@ -1,6 +1,7 @@
 # Environment & Sensitive Files
 .env
-application-local.properties
+application-*.properties
+!application.properties
 
 # Build & Dependency
 target/

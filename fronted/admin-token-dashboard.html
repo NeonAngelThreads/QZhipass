@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>企智通 · Token 用量管理后台</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f7fb; --card: #fff; --primary: #4f46e5; --text: #1f2937;
+    --muted: #6b7280; --border: #e5e7eb; --danger: #ef4444; --success: #10b981;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); }
+  header { background: linear-gradient(135deg, #4f46e5, #7c3aed); color: #fff;
+    padding: 14px 28px; display: flex; align-items: center; justify-content: space-between; }
+  header h1 { font-size: 20px; margin: 0; }
+  .header-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }
+  .header-right button { background: rgba(255,255,255,.2); color: #fff; border: 0; padding: 6px 14px;
+    border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .header-right button:hover { background: rgba(255,255,255,.3); }
+  .wrap { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,.04); }
+  .card h2 { font-size: 16px; margin: 0 0 16px; }
+  .kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+  .kpi { background: var(--card); border: 1px solid var(--border); border-radius: 14px;
+    padding: 20px; text-align: center; }
+  .kpi .num { font-size: 32px; font-weight: 700; color: var(--primary); }
+  .kpi .num.warn { color: var(--danger); }
+  .kpi .label { color: var(--muted); font-size: 13px; margin-top: 6px; }
+  .quota-row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  input[type=number] { padding: 10px 12px; border: 1px solid var(--border); border-radius: 8px;
+    font-size: 14px; width: 220px; }
+  button { background: var(--primary); color: #fff; border: 0; padding: 10px 18px;
+    border-radius: 8px; font-size: 14px; cursor: pointer; }
+  button:hover { opacity: .92; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 600; background: #fafafa; }
+  tr:hover td { background: #fafaff; }
+  .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; }
+  .badge.over { background: #fee2e2; color: var(--danger); }
+  .badge.warn { background: #fef3c7; color: #d97706; }
+  .badge.ok { background: #dcfce7; color: var(--success); }
+  .msg { font-size: 13px; color: var(--success); margin-left: 12px; }
+  .toolbar { display: flex; justify-content: flex-end; gap: 12px; margin-bottom: 12px; }
+  .toolbar select, .toolbar input { padding: 8px 12px; border: 1px solid var(--border); border-radius: 8px; font-size: 13px; }
+  .section-title { font-size: 15px; font-weight: 600; margin: 0 0 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>企智通 · Token 用量管理后台</h1>
+  <div class="header-right">
+    <span id="header-user">管理员</span>
+    <button onclick="doLogout()">退出登录</button>
+  </div>
+</header>
+
+<div class="wrap">
+  <!-- KPI 看板 -->
+  <div class="kpis">
+    <div class="kpi"><div class="num" id="kpi-active">0</div><div class="label">今日活跃用户数</div></div>
+    <div class="kpi"><div class="num warn" id="kpi-over">0</div><div class="label">今日超额用户数</div></div>
+    <div class="kpi"><div class="num" id="kpi-total">0</div><div class="label">今日总消耗 (M)</div></div>
+  </div>
+
+  <!-- 统一限额设置（右下角按钮缩小） -->
+  <div class="card">
+    <h2>统一设置所有员工 Token 限额（保存后立即生效）</h2>
+    <div class="quota-row">
+      <input type="number" id="quota-input" placeholder="输入限额，如 100000" min="1000" step="1000" />
+      <button onclick="saveQuota()">保存并立即生效</button>
+      <span class="msg" id="quota-msg"></span>
+    </div>
+  </div>
+
+  <!-- 分模型一周柱状图 -->
+  <div class="card">
+    <h2>分大模型 · 近 7 日每日 Token 消耗总量（不同颜色区分）</h2>
+    <canvas id="chart" height="110"></canvas>
+  </div>
+
+  <!-- 按部门统计 -->
+  <div class="card">
+    <h2>按部门统计 · 当日 Token 使用情况</h2>
+    <table id="dept-table">
+      <thead>
+        <tr><th>部门</th><th>员工数</th><th>当日总 Token</th><th>超额人数</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- 员工明细 -->
+  <div class="card">
+    <div class="toolbar">
+      <select id="dept-filter" onchange="filterUsers()">
+        <option value="">全部部门</option>
+      </select>
+      <input type="text" id="search-input" placeholder="搜索姓名..." oninput="filterUsers()" />
+      <button onclick="loadAll()">刷新数据</button>
+    </div>
+    <h2>员工 Token 使用明细（今日）</h2>
+    <table id="user-table">
+      <thead>
+        <tr><th>ID</th><th>姓名</th><th>部门</th><th>当日 Token</th><th>限额</th><th>状态</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:7511';
+const COLORS = ['#4f46e5','#ef4444','#10b981','#f59e0b','#06b6d4','#ec4899','#8b5cf6'];
+let allUsers = [];
+let globalQuota = 100000;
+
+// 退出登录
+function doLogout() {
+  if (confirm('确认退出管理后台？')) {
+    localStorage.removeItem('currentUserId');
+    localStorage.removeItem('currentUserName');
+    localStorage.removeItem('isAdmin');
+    window.location.href = '/login.html';
+  }
+}
+
+// 显示管理员名称
+(function() {
+  const name = localStorage.getItem('currentUserName');
+  if (name) document.getElementById('header-user').textContent = name;
+})();
+
+async function loadDashboard() {
+  const r = await fetch(API + '/api/v1/admin/token/dashboard');
+  const j = await r.json();
+  if (!j.success || !j.rawData) { console.warn('Dashboard load failed'); return; }
+  const d = j.rawData;
+  document.getElementById('kpi-active').textContent = (d.activeUsers || 0).toLocaleString();
+  document.getElementById('kpi-over').textContent = (d.overQuotaUsers || 0).toLocaleString();
+  document.getElementById('kpi-total').textContent = ((d.todayTotalConsumption || 0) / 1000000).toFixed(1);
+  globalQuota = d.globalLimit || 100000;
+  document.getElementById('quota-input').value = globalQuota;
+  renderChart(d.chartData);
+}
+
+function renderChart(chartData) {
+  const ctx = document.getElementById('chart').getContext('2d');
+  const colors = ['#4f46e5','#10b981','#f59e0b','#ef4444','#06b6d4','#ec4899'];
+  const datasets = (chartData && chartData.datasets || []).map((ds, i) => ({
+    label: ds.label,
+    data: ds.data || [],
+    backgroundColor: colors[i % colors.length],
+    borderRadius: 4
+  }));
+  if (window._chart) window._chart.destroy();
+  window._chart = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: (chartData && chartData.labels) || [], datasets },
+    options: {
+      responsive: true,
+      scales: { x: { stacked: false }, y: { beginAtZero: true, title: { display: true, text: 'Token 消耗' },
+        ticks: { callback: v => (v/1000000).toFixed(1)+'M' } } },
+      plugins: { legend: { position: 'top' }, tooltip: { callbacks: { label: c => c.dataset.label + ': ' + c.raw.toLocaleString() } } }
+    }
+  });
+}
+
+async function loadUsage() {
+  const r = await fetch(API + '/api/admin/token/usage');
+  const j = await r.json();
+  if (!j.success || !j.data) return;
+  const d = j.data;
+
+  // 部门统计表
+  const deptBody = document.querySelector('#dept-table tbody');
+  deptBody.innerHTML = '';
+  (d.departmentRows || d.departments || []).forEach(x => {
+    deptBody.innerHTML += `<tr><td>${x.department}</td><td>${x.userCount}</td>
+      <td>${x.totalTokens.toLocaleString()}</td><td style="${x.overQuotaCount>0?'color:var(--danger);font-weight:600':''}">${x.overQuotaCount}</td></tr>`;
+  });
+
+  // 更新部门筛选器
+  const depts = [...new Set((d.userUsageRows || d.users || []).map(u => u.department))].sort();
+  const sel = document.getElementById('dept-filter');
+  sel.innerHTML = '<option value="">全部部门</option>' + depts.map(dp => `<option value="${dp}">${dp}</option>`).join('');
+
+  // 员工明细
+  allUsers = (d.userUsageRows || d.users || []).map(u => ({
+    id: u.userId || u.id,
+    name: u.name,
+    department: u.department,
+    totalTokens: u.totalTokens,
+    quota: u.quota || globalQuota,
+    overQuota: u.overQuota !== undefined ? u.overQuota : (u.totalTokens >= (u.quota || globalQuota))
+  }));
+  renderUserTable(allUsers);
+}
+
+function renderUserTable(users) {
+  const uBody = document.querySelector('#user-table tbody');
+  uBody.innerHTML = '';
+  users.forEach(u => {
+    let badge;
+    if (u.overQuota) badge = '<span class="badge over">超额</span>';
+    else if (u.quota > 0 && u.totalTokens / u.quota > 0.85) badge = '<span class="badge warn">即将超</span>';
+    else badge = '<span class="badge ok">正常</span>';
+    uBody.innerHTML += `<tr><td>${u.id}</td><td>${u.name}</td><td>${u.department}</td>
+      <td>${u.totalTokens.toLocaleString()}</td><td>${u.quota.toLocaleString()}</td><td>${badge}</td></tr>`;
+  });
+}
+
+function filterUsers() {
+  const dept = document.getElementById('dept-filter').value;
+  const kw = document.getElementById('search-input').value.toLowerCase();
+  let filtered = allUsers;
+  if (dept) filtered = filtered.filter(u => u.department === dept);
+  if (kw) filtered = filtered.filter(u => u.name.toLowerCase().includes(kw));
+  renderUserTable(filtered);
+}
+
+async function saveQuota() {
+  const quota = parseInt(document.getElementById('quota-input').value, 10);
+  if (isNaN(quota) || quota < 1000) {
+    document.getElementById('quota-msg').textContent = '请输入有效限额 (≥1000)';
+    return;
+  }
+  const r = await fetch(API + '/api/v1/admin/token/quota', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ daily_token_limit: quota })
+  });
+  const j = await r.json();
+  if (j.success) {
+    document.getElementById('quota-msg').textContent = '已保存，立即生效 ✓';
+    globalQuota = quota;
+    loadAll();
+  } else {
+    document.getElementById('quota-msg').textContent = j.message || '保存失败';
+  }
+}
+
+function loadAll() {
+  loadDashboard();
+  loadUsage();
+}
+loadAll();
+setInterval(loadAll, 60000);
+</script>
+</body>
+</html>

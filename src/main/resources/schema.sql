@@ -31,3 +31,32 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE INDEX IF NOT EXISTS idx_users_phone   ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_users_status  ON users(status);
 CREATE INDEX IF NOT EXISTS idx_users_wechat  ON users(wechat);
+
+-- ============================================
+-- Token 用量记录表 (token_usage)
+-- ============================================
+CREATE TABLE IF NOT EXISTS token_usage (
+    id               BIGINT          PRIMARY KEY AUTO_INCREMENT COMMENT '记录ID',
+    user_id          BIGINT          NOT NULL                 COMMENT '用户ID',
+    usage_date       DATE            NOT NULL                 COMMENT '用量日期（按天清零）',
+    model            VARCHAR(50)     NOT NULL                 COMMENT '大模型名称',
+    prompt_tokens    BIGINT          NOT NULL DEFAULT 0       COMMENT '输入token数',
+    completion_tokens BIGINT         NOT NULL DEFAULT 0       COMMENT '输出token数',
+    total_tokens     BIGINT          NOT NULL DEFAULT 0       COMMENT '总token数',
+    UNIQUE KEY uk_user_date_model (user_id, usage_date, model)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='员工每日Token用量表';
+
+CREATE INDEX IF NOT EXISTS idx_token_date      ON token_usage(usage_date);
+CREATE INDEX IF NOT EXISTS idx_token_user_date ON token_usage(user_id, usage_date);
+
+-- ============================================
+-- 全局配置表 (global_config)
+-- ============================================
+CREATE TABLE IF NOT EXISTS global_config (
+    config_key      VARCHAR(100)    PRIMARY KEY               COMMENT '配置键',
+    config_value    TEXT            NOT NULL                 COMMENT '配置值'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='全局键值配置表';
+
+-- 默认统一 token 限额（管理员可在后台修改）
+INSERT IGNORE INTO global_config (config_key, config_value)
+VALUES ('global_token_quota', '100000');
