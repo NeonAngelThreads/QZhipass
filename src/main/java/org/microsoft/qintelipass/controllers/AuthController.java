@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.microsoft.qintelipass.ILoginStrategy;
 import org.microsoft.qintelipass.IRegisterable;
 import org.microsoft.qintelipass.LoginStrategyFactory;
+import org.microsoft.qintelipass.configs.AdminProperties;
 import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.exceptions.BadRequestException;
@@ -50,6 +51,7 @@ public class AuthController {
     private final UserDetailsServiceImpl userDetailsService;
     private final IRegisterable registerService;
     private final ConversationService conversationService;
+    private final AdminProperties adminProperties;
 
     public AuthController(
             LoginStrategyFactory strategyFactory,
@@ -57,7 +59,8 @@ public class AuthController {
             JwtUtil jwtUtil,
             UserDetailsServiceImpl userDetailsService,
             IRegisterable registerService,
-            ConversationService conversationService
+            ConversationService conversationService,
+            AdminProperties adminProperties
     ) {
         this.strategyFactory = strategyFactory;
         this.smsService = smsService;
@@ -65,6 +68,7 @@ public class AuthController {
         this.userDetailsService = userDetailsService;
         this.registerService = registerService;
         this.conversationService = conversationService;
+        this.adminProperties = adminProperties;
     }
 
     @PostMapping("/login")
@@ -165,6 +169,9 @@ public class AuthController {
     }
 
     private UserRole effectiveRole(User user) {
+        if (adminProperties.isAdmin(user.getPhone())) {
+            return UserRole.ADMIN;
+        }
         return user.getRole() == null ? UserRole.USER : user.getRole();
     }
 }

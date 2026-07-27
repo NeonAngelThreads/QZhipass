@@ -1,7 +1,6 @@
 package org.microsoft.qintelipass.services;
 
 import lombok.extern.slf4j.Slf4j;
-import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.models.User;
@@ -176,7 +175,7 @@ public class UserServiceImpl implements UserService {
         Optional<User> userOpt = userRepository.findById(userId);
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            userCacheService.cacheUser(UserDTO.fromUser(user));
+            userCacheService.cacheUser(user);
             return user;
         }
         return null;
@@ -198,7 +197,7 @@ public class UserServiceImpl implements UserService {
         Optional<User> userOpt = userRepository.findByPhone(phone);
         if (userOpt.isPresent()) {
             User user = userOpt.get();
-            userCacheService.cacheUser(UserDTO.fromUser(user));
+            userCacheService.cacheUser(user);
             return user;
         }
         return null;
@@ -232,7 +231,7 @@ public class UserServiceImpl implements UserService {
         User savedUser = userRepository.save(user);
         log.info("User saved to database: {}", savedUser.getId());
 
-        userCacheService.cacheUser(UserDTO.fromUser(savedUser));
+        userCacheService.cacheUser((savedUser));
         log.debug("User cached: {}", savedUser.getId());
     }
 
@@ -256,7 +255,7 @@ public class UserServiceImpl implements UserService {
         user.setStatus(UserStatus.CANCELLED);
         User savedUser = userRepository.save(user);
 
-        userCacheService.cacheUser(UserDTO.fromUser(savedUser));
+        userCacheService.cacheUser((savedUser));
 
         return true;
     }

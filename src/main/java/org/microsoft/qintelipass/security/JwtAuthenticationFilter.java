@@ -8,6 +8,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.microsoft.qintelipass.ITrafficStatService;
+import org.microsoft.qintelipass.configs.AdminProperties;
+import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.services.UserService;
 import org.microsoft.qintelipass.util.JwtUtil;
@@ -26,12 +28,16 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtUtil jwtUtil;
     private final UserService userService;
     private final ITrafficStatService trafficStatService;
+    private final AdminProperties adminProperties;
 
     @Autowired
-    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserService userService, ITrafficStatService trafficStatService) {
+    public JwtAuthenticationFilter(JwtUtil jwtUtil, UserService userService,
+                                   ITrafficStatService trafficStatService,
+                                   AdminProperties adminProperties) {
         this.jwtUtil = jwtUtil;
         this.userService = userService;
         this.trafficStatService = trafficStatService;
+        this.adminProperties = adminProperties;
     }
 
     @Override
@@ -62,11 +68,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                     if (user != null && user.isActive()) {
 //                        trafficStatService.recordTraffic(user.getId());
+                        UserRole role = adminProperties.isAdmin(user.getPhone())
+                                ? UserRole.ADMIN
+                                : user.getRole() == null ? UserRole.USER : user.getRole();
+
                         AuthenticatedUser authenticatedUser = AuthenticatedUser.builder()
                                 .userId(user.getId())
                                 .username(user.getName())
                                 .password(user.getPasswordHash())
-                                .role(user.getRole())
+                                .role(role)
                                 .build();
 
                         UsernamePasswordAuthenticationToken authenticationToken =

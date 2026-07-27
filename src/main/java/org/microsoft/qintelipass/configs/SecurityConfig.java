@@ -60,7 +60,7 @@ public class SecurityConfig {
                                 "/api/ai/models/configured",
                                 "/api/v1/account/status").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers("/api/v1/admin/**", "/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/admin/**", "/api/v2/admin/**", "/api/admin/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT,
                                 "/api/v1/account/cancel",
                                 "/api/v1/account/freeze").hasRole("ADMIN")

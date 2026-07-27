@@ -3,7 +3,6 @@ package org.microsoft.qintelipass.services;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
-import org.microsoft.qintelipass.dtos.UserDTO;
 import org.microsoft.qintelipass.models.User;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.dao.DataAccessException;
@@ -27,7 +26,7 @@ public class UserCacheService {
         this.objectMapper = objectMapper;
     }
 
-    public void cacheUser(UserDTO user) {
+    public void cacheUser(User user) {
         try {
             String userJson = objectMapper.writeValueAsString(user);
             String userKey = USER_KEY_PREFIX + user.getId();
