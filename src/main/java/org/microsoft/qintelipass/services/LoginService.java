@@ -21,11 +21,7 @@ public class LoginService implements ILoginable {
     }
     @Override
     public User loginByPhoneAndPassword(String username, String password){
-        User user = userService.getUserByPhone(username);
-        if (user != null && passwordEncoder.matches(password, user.getPasswordHash())) {
-            return user;
-        }
-        return null;
+        return userService.loginByPassword(username, password);
     }
     @Override
     public User loginByEmailAndPassword(String email, String password) {

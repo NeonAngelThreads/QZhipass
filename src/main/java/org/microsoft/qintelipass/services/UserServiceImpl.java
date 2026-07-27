@@ -3,12 +3,17 @@ package org.microsoft.qintelipass.services;
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.enums.UserStatus;
+import org.microsoft.qintelipass.exceptions.BadRequestException;
+import org.microsoft.qintelipass.exceptions.UnauthorizedException;
 import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.repository.UserRepository;
+import org.microsoft.qintelipass.util.QZhiPasswordPattern;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -17,13 +22,16 @@ import java.util.Optional;
 @Slf4j
 @Service
 public class UserServiceImpl implements UserService {
+    private static final String PASSWORD_POLICY_MESSAGE =
+            "密码必须包含大写字母、小写字母、特殊字符、数字，长度至少为8个字符";
 
     @Autowired
     private UserRepository userRepository;
 
     @Autowired
     private UserCacheService userCacheService;
-    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
+    @Autowired
+    private PasswordEncoder passwordEncoder;
 
     @Transactional
     public User createAccount(String name, String department, String email,
@@ -276,5 +284,65 @@ public class UserServiceImpl implements UserService {
         }
         Optional<User> userOpt = userRepository.findByName(username);
         return userOpt.orElse(null);
+    }
+
+    @Override
+    @Transactional
+    public void changePassword(
+            Long userId,
+            String oldPassword,
+            String newPassword,
+            String confirmPassword
+    ) {
+        if (userId == null) {
+            throw new UnauthorizedException("未登录或登录已失效");
+        }
+
+        User user = userRepository.findById(userId)
+                .orElseThrow(() -> new UnauthorizedException("未登录或登录已失效"));
+
+        if (oldPassword == null || oldPassword.isBlank()) {
+            throw new BadRequestException("原密码不能为空");
+        }
+        String currentPasswordHash = user.getPasswordHash();
+        if (currentPasswordHash == null
+                || !passwordEncoder.matches(oldPassword, currentPasswordHash)) {
+            throw new BadRequestException("原密码错误");
+        }
+        if (newPassword == null || newPassword.isBlank()) {
+            throw new BadRequestException("新密码不能为空");
+        }
+        if (confirmPassword == null || confirmPassword.isBlank()) {
+            throw new BadRequestException("确认新密码不能为空");
+        }
+        if (!newPassword.equals(confirmPassword)) {
+            throw new BadRequestException("两次输入的新密码不一致");
+        }
+        if (passwordEncoder.matches(newPassword, currentPasswordHash)) {
+            throw new BadRequestException("新密码不能与原密码相同，请重试");
+        }
+        if (!QZhiPasswordPattern.validateStrongPassword(newPassword)) {
+            throw new BadRequestException(PASSWORD_POLICY_MESSAGE);
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        user.setUpdatedAt(LocalDateTime.now());
+        userRepository.saveAndFlush(user);
+        userCacheService.deleteCachedUser(userId);
+        evictUserCacheAgainAfterCommit(userId);
+    }
+
+    private void evictUserCacheAgainAfterCommit(Long userId) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(
+                new TransactionSynchronization() {
+                    @Override
+                    public void afterCommit() {
+                        userCacheService.deleteCachedUser(userId);
+                    }
+                }
+        );
     }
 }

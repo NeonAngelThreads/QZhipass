@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import {type Component, computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
+import {type Component, computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch} from 'vue'
 import {ElMessage, ElMessageBox} from 'element-plus'
 import {useRouter} from 'vue-router'
 import BrandLogo from '../components/BrandLogo.vue'
 import http, {getErrorMessage} from '../api/http'
 import {checkAgentDeletion, deleteAgent} from '../api/agent'
+import {changePassword} from '../api/auth'
 import {readLoginInfo, saveInitialConversationId} from '../api/session'
 import {useAuthStore} from '../stores/auth'
 
@@ -14,16 +15,77 @@ import {
   Document,
   EditPen,
   Headset,
+  Hide,
+  Lock,
   Paperclip,
   Promotion,
   Search,
   Setting,
   SwitchButton,
   UserFilled,
+  View,
 } from '@element-plus/icons-vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
+
+const PASSWORD_POLICY_MESSAGE = '密码必须包含大写字母、小写字母、特殊字符、数字，长度至少为8个字符'
+const PASSWORD_SAME_MESSAGE = '新密码不能与原密码相同，请重试'
+const PASSWORD_MISMATCH_MESSAGE = '两次输入的新密码不一致'
+
+interface ChangePasswordForm {
+  oldPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
+type PasswordField = keyof ChangePasswordForm
+type PasswordFieldState<T> = Record<PasswordField, T>
+
+const PASSWORD_ERROR_FIELD_BY_MESSAGE: Record<string, PasswordField> = {
+  原密码不能为空: 'oldPassword',
+  原密码错误: 'oldPassword',
+  新密码不能为空: 'newPassword',
+  [PASSWORD_POLICY_MESSAGE]: 'newPassword',
+  [PASSWORD_SAME_MESSAGE]: 'newPassword',
+  确认新密码不能为空: 'confirmPassword',
+  [PASSWORD_MISMATCH_MESSAGE]: 'confirmPassword'
+}
+
+const PASSWORD_FIELDS = [
+  {
+    key: 'oldPassword',
+    label: '原密码',
+    autocomplete: 'current-password',
+    inputId: 'change-password-old',
+    inputTestId: 'old-password-input',
+    toggleTestId: 'toggle-old-password'
+  },
+  {
+    key: 'newPassword',
+    label: '新密码',
+    autocomplete: 'new-password',
+    inputId: 'change-password-new',
+    inputTestId: 'new-password-input',
+    toggleTestId: 'toggle-new-password'
+  },
+  {
+    key: 'confirmPassword',
+    label: '确认新密码',
+    autocomplete: 'new-password',
+    inputId: 'change-password-confirm',
+    inputTestId: 'confirm-password-input',
+    toggleTestId: 'toggle-confirm-password'
+  }
+] as const satisfies ReadonlyArray<{
+  key: PasswordField
+  label: string
+  autocomplete: string
+  inputId: string
+  inputTestId: string
+  toggleTestId: string
+}>
+
 // ========== state ==========
 const searchQuery = ref('')
 const inputText = ref('')
@@ -34,6 +96,29 @@ const selectedChatId = ref<number | null>(null)
 const showModelDropdown = ref(false)
 const showAgentDropdown = ref(false)
 const creatingConversation = ref(false)
+const accountSettingsVisible = ref(false)
+const passwordSubmitting = ref(false)
+const passwordRequestError = ref('')
+const passwordForm = reactive<ChangePasswordForm>({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
+const passwordVisibility = reactive<PasswordFieldState<boolean>>({
+  oldPassword: false,
+  newPassword: false,
+  confirmPassword: false
+})
+const passwordTouched = reactive<PasswordFieldState<boolean>>({
+  oldPassword: false,
+  newPassword: false,
+  confirmPassword: false
+})
+const passwordServerErrors = reactive<PasswordFieldState<string>>({
+  oldPassword: '',
+  newPassword: '',
+  confirmPassword: ''
+})
 
 const tokenLimit = 100000
 const tokenUsed = 64000
@@ -144,6 +229,132 @@ const chatContainer = ref<HTMLElement>()
 const currentChat = computed(() => chats.find(c => c.id === selectedChatId.value))
 const charCount = computed(() => inputText.value.length)
 const maxChars = 2000
+
+const passwordErrors = computed<PasswordFieldState<string>>(() => ({
+  oldPassword: passwordTouched.oldPassword
+    ? validateOldPassword() || passwordServerErrors.oldPassword
+    : '',
+  newPassword: passwordTouched.newPassword
+    ? validateNewPassword() || passwordServerErrors.newPassword
+    : '',
+  confirmPassword: passwordTouched.confirmPassword
+    ? validateConfirmPassword() || passwordServerErrors.confirmPassword
+    : ''
+}))
+
+function isBlankPassword(password: string) {
+  return password.trim().length === 0
+}
+
+function isStrongPassword(password: string) {
+  return password.length >= 8
+    && /[A-Z]/.test(password)
+    && /[a-z]/.test(password)
+    && /[0-9]/.test(password)
+    && /[^\p{L}\p{N}\s]/u.test(password)
+}
+
+function validateOldPassword() {
+  return isBlankPassword(passwordForm.oldPassword) ? '原密码不能为空' : ''
+}
+
+function validateNewPassword() {
+  if (isBlankPassword(passwordForm.newPassword)) {
+    return '新密码不能为空'
+  }
+  if (
+    !isBlankPassword(passwordForm.oldPassword)
+    && passwordForm.newPassword === passwordForm.oldPassword
+  ) {
+    return PASSWORD_SAME_MESSAGE
+  }
+  return isStrongPassword(passwordForm.newPassword) ? '' : PASSWORD_POLICY_MESSAGE
+}
+
+function validateConfirmPassword() {
+  if (isBlankPassword(passwordForm.confirmPassword)) {
+    return '确认新密码不能为空'
+  }
+  return passwordForm.confirmPassword === passwordForm.newPassword
+    ? ''
+    : PASSWORD_MISMATCH_MESSAGE
+}
+
+function clearPasswordServerErrors() {
+  passwordServerErrors.oldPassword = ''
+  passwordServerErrors.newPassword = ''
+  passwordServerErrors.confirmPassword = ''
+  passwordRequestError.value = ''
+}
+
+function resetPasswordForm() {
+  passwordForm.oldPassword = ''
+  passwordForm.newPassword = ''
+  passwordForm.confirmPassword = ''
+  passwordVisibility.oldPassword = false
+  passwordVisibility.newPassword = false
+  passwordVisibility.confirmPassword = false
+  passwordTouched.oldPassword = false
+  passwordTouched.newPassword = false
+  passwordTouched.confirmPassword = false
+  clearPasswordServerErrors()
+}
+
+function openAccountSettings() {
+  resetPasswordForm()
+  accountSettingsVisible.value = true
+}
+
+function handlePasswordInput(field: PasswordField) {
+  passwordTouched[field] = true
+  clearPasswordServerErrors()
+}
+
+function togglePasswordVisibility(field: PasswordField) {
+  passwordVisibility[field] = !passwordVisibility[field]
+}
+
+function markAllPasswordFieldsTouched() {
+  passwordTouched.oldPassword = true
+  passwordTouched.newPassword = true
+  passwordTouched.confirmPassword = true
+}
+
+function setPasswordRequestError(message: string) {
+  const field = PASSWORD_ERROR_FIELD_BY_MESSAGE[message]
+  if (field) {
+    passwordServerErrors[field] = message
+    return
+  }
+  passwordRequestError.value = message
+}
+
+async function handleChangePassword() {
+  if (passwordSubmitting.value) {
+    return
+  }
+
+  markAllPasswordFieldsTouched()
+  clearPasswordServerErrors()
+  if (validateOldPassword() || validateNewPassword() || validateConfirmPassword()) {
+    return
+  }
+
+  passwordSubmitting.value = true
+  try {
+    await changePassword({
+      oldPassword: passwordForm.oldPassword,
+      newPassword: passwordForm.newPassword,
+      confirmPassword: passwordForm.confirmPassword
+    })
+    resetPasswordForm()
+    ElMessage.success('修改成功')
+  } catch (error) {
+    setPasswordRequestError(error instanceof Error ? error.message : '修改密码失败')
+  } finally {
+    passwordSubmitting.value = false
+  }
+}
 
 function selectChat(id: number) {
   selectedChatId.value = id
@@ -466,6 +677,7 @@ const agentLabel = computed(() => agents.value.find(a => a.value === selectedAge
           <button
             class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
             title="用户设置"
+            @click="openAccountSettings"
           >
             <el-icon :size="18"><UserFilled /></el-icon>
           </button>
@@ -634,6 +846,97 @@ const agentLabel = computed(() => agents.value.find(a => a.value === selectedAge
         </div>
       </div>
     </div>
+
+    <el-dialog
+      v-model="accountSettingsVisible"
+      align-center
+      append-to-body
+      class="!overflow-hidden !rounded-xl"
+      :close-on-click-modal="!passwordSubmitting"
+      :close-on-press-escape="!passwordSubmitting"
+      :show-close="!passwordSubmitting"
+      title="账号设置"
+      width="min(520px, calc(100vw - 32px))"
+      @closed="resetPasswordForm"
+    >
+      <div class="mb-6 border-l-4 border-blue-600 bg-blue-50 px-4 py-3">
+        <p class="m-0 text-sm font-semibold text-blue-800">账户安全</p>
+        <p class="mb-0 mt-1 text-xs leading-5 text-blue-700">
+          修改成功后，下次登录必须使用新密码。
+        </p>
+      </div>
+
+      <div class="mb-5">
+        <h3 class="m-0 text-lg font-semibold text-gray-800">修改密码</h3>
+        <p class="mb-0 mt-1 text-sm text-gray-500">请确认原密码并设置符合安全规则的新密码。</p>
+      </div>
+
+      <el-form label-position="top" @submit.prevent="handleChangePassword">
+        <el-form-item
+          v-for="field in PASSWORD_FIELDS"
+          :key="field.key"
+          :error="passwordErrors[field.key]"
+          :label="field.label"
+        >
+          <el-input
+            :id="field.inputId"
+            v-model="passwordForm[field.key]"
+            :autocomplete="field.autocomplete"
+            :data-testid="field.inputTestId"
+            :prefix-icon="Lock"
+            size="large"
+            :type="passwordVisibility[field.key] ? 'text' : 'password'"
+            @blur="passwordTouched[field.key] = true"
+            @input="handlePasswordInput(field.key)"
+          >
+            <template #suffix>
+              <button
+                :aria-label="`${passwordVisibility[field.key] ? '隐藏' : '显示'}${field.label}`"
+                class="flex h-7 w-7 items-center justify-center border-0 bg-transparent p-0 text-gray-400 transition hover:text-blue-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-200"
+                :data-testid="field.toggleTestId"
+                type="button"
+                @click="togglePasswordVisibility(field.key)"
+                @mousedown.prevent
+              >
+                <el-icon :size="17">
+                  <Hide v-if="passwordVisibility[field.key]" />
+                  <View v-else />
+                </el-icon>
+              </button>
+            </template>
+          </el-input>
+        </el-form-item>
+
+        <p
+          v-if="passwordRequestError"
+          class="-mt-1 mb-4 text-sm text-red-600"
+          role="alert"
+        >
+          {{ passwordRequestError }}
+        </p>
+
+        <div class="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-5">
+          <el-button
+            :disabled="passwordSubmitting"
+            size="large"
+            @click="accountSettingsVisible = false"
+          >
+            取消
+          </el-button>
+          <el-button
+            color="#002fa7"
+            data-testid="change-password-submit"
+            :disabled="passwordSubmitting"
+            :loading="passwordSubmitting"
+            native-type="submit"
+            size="large"
+            type="primary"
+          >
+            保存修改
+          </el-button>
+        </div>
+      </el-form>
+    </el-dialog>
   </div>
 </template>
 

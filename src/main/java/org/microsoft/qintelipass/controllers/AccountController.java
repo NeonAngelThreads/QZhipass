@@ -7,8 +7,11 @@ package org.microsoft.qintelipass.controllers;
 
 import lombok.Generated;
 import org.microsoft.qintelipass.models.User;
+import org.microsoft.qintelipass.request.ChangePasswordRequest;
 import org.microsoft.qintelipass.request.CreateAccountRequest;
+import org.microsoft.qintelipass.response.ApiResponse;
 import org.microsoft.qintelipass.response.ResponseBody;
+import org.microsoft.qintelipass.security.SecurityUtil;
 import org.microsoft.qintelipass.services.UserService;
 import org.microsoft.qintelipass.util.QZhiPasswordPattern;
 import org.slf4j.Logger;
@@ -98,6 +101,20 @@ public class AccountController {
         } catch (IllegalArgumentException var3) {
             return ResponseEntity.badRequest().body(ResponseBody.builder().success(false).message(var3.getMessage()).build());
         }
+    }
+
+    @PutMapping({"/password"})
+    public ApiResponse<Void> changePassword(
+            @RequestBody(required = false) ChangePasswordRequest request
+    ) {
+        SecurityUtil.requireAuthentication();
+        this.userService.changePassword(
+                SecurityUtil.getCurrentUserId(),
+                request == null ? null : request.oldPassword(),
+                request == null ? null : request.newPassword(),
+                request == null ? null : request.confirmPassword()
+        );
+        return ApiResponse.ok("修改成功", null);
     }
 
     private String validateRequiredFields(CreateAccountRequest request) {

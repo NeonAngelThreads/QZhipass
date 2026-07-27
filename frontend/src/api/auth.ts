@@ -16,6 +16,12 @@ interface LoginPayload {
   initialConversationId?: number
 }
 
+export interface ChangePasswordRequest {
+  oldPassword: string
+  newPassword: string
+  confirmPassword: string
+}
+
 const MOBILE_PATTERN = /^1[3-9]\d{9}$/
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -83,4 +89,15 @@ export async function sendSmsCode(mobile: string) {
 
 export async function loginBySms(mobile: string, smsCode: string) {
   return login('MOBILE_CODE', {mobile, smsCode})
+}
+
+export async function changePassword(request: ChangePasswordRequest) {
+  try {
+    const {data} = await http.put<ApiResponse<null>>('/v1/account/password', request)
+    if (!data.success) {
+      throw new Error(data.message || '修改密码失败')
+    }
+  } catch (error) {
+    throw new Error(getErrorMessage(error, '请求失败，请稍后重试'))
+  }
 }

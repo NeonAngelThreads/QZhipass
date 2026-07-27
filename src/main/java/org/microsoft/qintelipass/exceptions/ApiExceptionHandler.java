@@ -1,7 +1,7 @@
 package org.microsoft.qintelipass.exceptions;
 
 import org.microsoft.qintelipass.response.ApiResponse;
-import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.DataAccessException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -23,10 +23,21 @@ public class ApiExceptionHandler {
                 .body(ApiResponse.error(exception.getMessage()));
     }
 
-    @ExceptionHandler({RedisConnectionFailureException.class, DataAccessResourceFailureException.class})
-    public ResponseEntity<ApiResponse<Void>> handleRedisUnavailable(RuntimeException exception) {
+    @ExceptionHandler(RedisConnectionFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleRedisUnavailable(
+            RedisConnectionFailureException exception
+    ) {
         return ResponseEntity
                 .status(503)
                 .body(ApiResponse.error("缓存服务暂时不可用，请稍后重试"));
+    }
+
+    @ExceptionHandler(DataAccessException.class)
+    public ResponseEntity<ApiResponse<Void>> handleDatabaseFailure(
+            DataAccessException exception
+    ) {
+        return ResponseEntity
+                .internalServerError()
+                .body(ApiResponse.error("数据库操作失败，请稍后重试"));
     }
 }

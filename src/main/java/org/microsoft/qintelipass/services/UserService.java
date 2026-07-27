@@ -22,4 +22,11 @@ public interface UserService {
     boolean isUserActive(String phone);
 
     void freezeAccount(String phone);
+
+    void changePassword(
+            Long userId,
+            String oldPassword,
+            String newPassword,
+            String confirmPassword
+    );
 }
