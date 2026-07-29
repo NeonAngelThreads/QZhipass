@@ -13,6 +13,8 @@ import org.springframework.data.redis.core.ValueOperations;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.verify;
@@ -55,6 +57,24 @@ class UserCacheServiceTests {
         when(redisTemplate.opsForValue()).thenThrow(new RedisConnectionFailureException("down"));
 
         assertNull(userCacheService.getCachedUserByPhone("13800138000"));
+    }
+
+    @Test
+    void readsCachedUserWithComputedStatusProperties() throws Exception {
+        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        User user = User.builder()
+                .id(7L)
+                .phone("13800138000")
+                .name("tester")
+                .build();
+        String cachedJson = objectMapper.writeValueAsString(user);
+        when(valueOperations.get("user:7")).thenReturn(cachedJson);
+
+        User cachedUser = userCacheService.getCachedUserById(7L);
+
+        assertNotNull(cachedUser);
+        assertEquals(7L, cachedUser.getId());
+        assertEquals("13800138000", cachedUser.getPhone());
     }
 
     @Test

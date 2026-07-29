@@ -2,8 +2,11 @@ package org.microsoft.qintelipass.exceptions;
 
 import org.microsoft.qintelipass.response.ApiResponse;
 import org.springframework.dao.DataAccessException;
-import org.springframework.http.ResponseEntity;
 import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.util.StringUtils;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
@@ -34,6 +37,29 @@ public class ApiExceptionHandler {
         return ResponseEntity
                 .badRequest()
                 .body(ApiResponse.error(exception.getMessage()));
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ApiResponse<Void>> handleValidationFailure(
+            MethodArgumentNotValidException exception
+    ) {
+        String message = exception.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getDefaultMessage())
+                .filter(StringUtils::hasText)
+                .findFirst()
+                .orElse("请求参数错误");
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error(message));
+    }
+
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnreadableRequest(
+            HttpMessageNotReadableException exception
+    ) {
+        return ResponseEntity
+                .badRequest()
+                .body(ApiResponse.error("请求参数格式错误"));
     }
 
     @ExceptionHandler(RedisConnectionFailureException.class)

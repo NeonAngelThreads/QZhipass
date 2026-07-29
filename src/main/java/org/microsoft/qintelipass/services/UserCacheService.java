@@ -1,6 +1,7 @@
 package org.microsoft.qintelipass.services;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.models.User;
@@ -59,7 +60,9 @@ public class UserCacheService {
             return null;
         }
         try {
-            return objectMapper.readValue(userJson, User.class);
+            return objectMapper.readerFor(User.class)
+                    .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+                    .readValue(userJson);
         } catch (JsonProcessingException e) {
             log.error("Failed to deserialize cached user: {}", userId, e);
             return null;
