@@ -533,9 +533,12 @@ function scrollToBottom() {
 }
 
 function logout() {
-  router.push('/login')
   authStore.logout()
   router.replace('/login')
+}
+
+function openAccountSettingsPage() {
+  router.push('/account/settings')
 }
 
 watch(
@@ -577,10 +580,6 @@ const agentLabel = computed(() => agents.value.find(a => a.value === selectedAge
       <!-- New chat button -->
       <div class="px-4 pt-4">
         <button
-          class="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98]"
-        >
-          <el-icon :size="16"><ChatDotSquare /></el-icon>
-          + 开启新会话
           class="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
           :disabled="creatingConversation"
           @click="createNewConversation()"
@@ -613,7 +612,10 @@ const agentLabel = computed(() => agents.value.find(a => a.value === selectedAge
 
       <!-- Bottom user area -->
       <div class="border-t border-gray-100 px-4 py-3">
-        <div class="mb-2 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-500 transition hover:bg-gray-50 cursor-pointer">
+        <div
+          class="mb-2 flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-500 transition hover:bg-gray-50 cursor-pointer"
+          @click="openAccountSettingsPage"
+        >
           <el-icon :size="16"><Setting /></el-icon>
           <span>系统设置</span>
         </div>
@@ -939,4 +941,3 @@ const agentLabel = computed(() => agents.value.find(a => a.value === selectedAge
     </el-dialog>
   </div>
 </template>
-

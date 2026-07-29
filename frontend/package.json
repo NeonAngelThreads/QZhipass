@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "node node_modules/vite/bin/vite.js --host 0.0.0.0",
     "build": "node node_modules/vue-tsc/bin/vue-tsc.js -b && node node_modules/vite/bin/vite.js build",
+    "test": "node node_modules/vitest/vitest.mjs run",
     "preview": "node node_modules/vite/bin/vite.js preview --host 0.0.0.0",
     "ngrok": "node node_modules/ngrok/src/index.js http 5173 --domain=fastball-staple-regular.ngrok-free.dev"
   },
@@ -25,6 +26,7 @@
     "tailwindcss": "^4.3.2",
     "typescript": "~5.7.2",
     "vite": "^6.0.5",
+    "vitest": "^3.2.4",
     "vue-tsc": "^2.2.0"
   }
 }

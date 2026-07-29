@@ -1,5 +1,5 @@
 import http, {getErrorMessage} from './http'
-import {type LoginInfo, saveLoginInfo} from './session'
+import {type LoginInfo, saveLoginInfo, type UserRole} from './session'
 
 type PortalLoginType = 'MOBILE_PWD' | 'EMAIL_PWD' | 'MOBILE_CODE'
 
@@ -9,11 +9,16 @@ interface ApiResponse<T> {
   data: T | null
 }
 
-interface LoginPayload {
-  user_id: string | number
-  access_token: string
-  role?: string
-  initialConversationId?: number
+interface PortalLoginResponse {
+  success?: boolean
+  message?: string
+  data?: Record<string, unknown>
+  user_id?: unknown
+  userId?: unknown
+  access_token?: unknown
+  accessToken?: unknown
+  token?: unknown
+  role?: unknown
 }
 
 export interface ChangePasswordRequest {
@@ -37,28 +42,83 @@ export function isValidAccount(account: string) {
   return isValidMobile(account) || isValidEmail(account)
 }
 
-function normalizeLoginInfo(response: ApiResponse<LoginPayload>): LoginInfo {
-  if (!response.success || !response.data) {
+function readString(value: unknown) {
+  return typeof value === 'string' && value.trim() ? value.trim() : ''
+}
+
+function readIdentifier(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return String(value)
+  }
+  return readString(value)
+}
+
+function readNumber(value: unknown) {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value
+  }
+  if (typeof value === 'string' && value.trim()) {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : undefined
+  }
+  return undefined
+}
+
+function readRole(value: unknown): UserRole | undefined {
+  return value === 'ADMIN' || value === 'USER'
+    ? value
+    : undefined
+}
+
+function normalizeLoginInfo(response: PortalLoginResponse): LoginInfo {
+  if (response.success === false) {
     throw new Error(response.message || '登录失败')
   }
 
-  const userId = String(response.data.user_id || '').trim()
-  const accessToken = response.data.access_token?.trim()
-  if (!userId || !accessToken) {
-    throw new Error('登录成功，但后端未返回完整认证信息')
+  const payload = response.data && typeof response.data === 'object' ? response.data : {}
+  const conversationPayload =
+    payload.conversation && typeof payload.conversation === 'object'
+      ? payload.conversation as Record<string, unknown>
+      : {}
+  const userId =
+    readIdentifier(payload.user_id) ||
+    readIdentifier(payload.userId) ||
+    readIdentifier(response.user_id) ||
+    readIdentifier(response.userId)
+  const accessToken =
+    readString(payload.access_token) ||
+    readString(payload.accessToken) ||
+    readString(payload.token) ||
+    readString(response.access_token) ||
+    readString(response.accessToken) ||
+    readString(response.token)
+  const initialConversationId =
+    readNumber(payload.initialConversationId) ||
+    readNumber(payload.initial_conversation_id) ||
+    readNumber(conversationPayload.id)
+  const role =
+    readRole(response.role) ||
+    readRole(payload.role)
+
+  if (!userId) {
+    throw new Error('登录成功但后端未返回 user_id')
+  }
+
+  if (!accessToken) {
+    throw new Error('登录成功但后端未返回 access_token')
   }
 
   return {
     userId,
     accessToken,
-    role: response.data.role,
-    initialConversationId: response.data.initialConversationId
+    initialConversationId,
+    role
   }
 }
 
 async function login(loginType: PortalLoginType, credential: Record<string, string>) {
   try {
-    const {data} = await http.post<ApiResponse<LoginPayload>>('/v1/auth/portal/login', {
+    const {data} = await http.post<PortalLoginResponse>('/v1/auth/portal/login', {
       loginType,
       credential
     })

@@ -16,6 +16,19 @@ public class ApiExceptionHandler {
                 .body(ApiResponse.error(exception.getMessage()));
     }
 
+    @ExceptionHandler(EmailBindingCooldownException.class)
+    public ResponseEntity<ApiResponse<EmailBindingCooldownData>> handleEmailBindingCooldown(
+            EmailBindingCooldownException exception
+    ) {
+        return ResponseEntity
+                .status(exception.getStatus())
+                .body(new ApiResponse<>(
+                        false,
+                        exception.getMessage(),
+                        new EmailBindingCooldownData(exception.getCooldownSeconds())
+                ));
+    }
+
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> handleIllegalArgumentException(IllegalArgumentException exception) {
         return ResponseEntity
@@ -39,5 +52,8 @@ public class ApiExceptionHandler {
         return ResponseEntity
                 .internalServerError()
                 .body(ApiResponse.error("数据库操作失败，请稍后重试"));
+    }
+
+    public record EmailBindingCooldownData(long cooldownSeconds) {
     }
 }

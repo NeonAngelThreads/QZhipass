@@ -4,6 +4,7 @@ import HomeView from '../views/HomeView.vue'
 import ChatView from '../views/ChatView.vue'
 import SensitiveWordsView from '../views/SensitiveWordsView.vue'
 import SecurityLogView from '../views/SecurityLogView.vue'
+import AccountSettingsView from '../views/AccountSettingsView.vue'
 import {isLoggedIn} from '../api/session'
 
 const router = createRouter({
@@ -27,6 +28,17 @@ const router = createRouter({
       path: '/chat',
       name: 'chat',
       component: ChatView
+    },
+    {
+      path: '/account/settings',
+      name: 'account-settings',
+      component: AccountSettingsView,
+      beforeEnter: () => isLoggedIn()
+        ? true
+        : {
+            name: 'login',
+            query: { redirect: '/account/settings' }
+          }
     },
     {
       path: '/admin/sensitive-words',

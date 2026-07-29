@@ -1,10 +1,10 @@
 package org.microsoft.qintelipass.services;
 
+import org.microsoft.qintelipass.util.VerificationCodeGenerator;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.concurrent.ThreadLocalRandom;
 
 @Service
 public class SmsServiceImpl implements ISmsService{
@@ -12,6 +12,8 @@ public class SmsServiceImpl implements ISmsService{
 
     @Autowired
     private RedisService redisService;
+    @Autowired
+    private VerificationCodeGenerator verificationCodeGenerator = new VerificationCodeGenerator();
 
     @Override
     public String sendSmsCode(String phoneNumber) {
@@ -21,12 +23,6 @@ public class SmsServiceImpl implements ISmsService{
     }
 
     public String getRandomCode(int length) {
-        StringBuilder sb = new StringBuilder();
-        ThreadLocalRandom
-                .current()
-                .ints(0, 10)
-                .limit(length)
-                .forEach(sb::append);
-        return sb.toString();
+        return verificationCodeGenerator.numericCode(length);
     }
 }
