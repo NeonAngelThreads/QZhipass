@@ -51,11 +51,13 @@ CREATE TABLE IF NOT EXISTS conversation_messages (
     token_count INT NOT NULL DEFAULT 0,
     status VARCHAR(20) NOT NULL DEFAULT 'COMPLETED',
     request_id VARCHAR(64) NULL,
+    agent_id BIGINT NULL,
     created_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
     PRIMARY KEY (id),
     KEY idx_conversation_messages_conversation (conversation_id),
     KEY idx_conversation_messages_conversation_created (conversation_id, created_at),
     KEY idx_conversation_messages_model_key (model_key),
+    KEY idx_conversation_messages_agent_id (agent_id),
     UNIQUE KEY uk_conversation_message_request_role (conversation_id, request_id, role),
     CONSTRAINT fk_conversation_messages_conversation
         FOREIGN KEY (conversation_id) REFERENCES conversations (id)

@@ -3,7 +3,7 @@ export type UserRole = 'USER' | 'ADMIN'
 export interface LoginInfo {
   userId: string
   accessToken: string
-  initialConversationId?: number
+  initialConversationId?: string
   role?: UserRole
 }
 
@@ -27,14 +27,14 @@ export function saveLoginInfo(data: LoginInfo) {
   }
 }
 
-export function saveInitialConversationId(initialConversationId: number) {
-  window.localStorage.setItem(INITIAL_CONVERSATION_ID_KEY, String(initialConversationId))
+export function saveInitialConversationId(initialConversationId: string) {
+  window.localStorage.setItem(INITIAL_CONVERSATION_ID_KEY, initialConversationId)
 }
 
 export function readLoginInfo(): LoginInfo | null {
   const userId = window.localStorage.getItem(USER_ID_KEY)
   const accessToken = window.localStorage.getItem(ACCESS_TOKEN_KEY)
-  const initialConversationId = Number(window.localStorage.getItem(INITIAL_CONVERSATION_ID_KEY))
+  const initialConversationId = window.localStorage.getItem(INITIAL_CONVERSATION_ID_KEY)?.trim()
   const storedRole = window.localStorage.getItem(ROLE_KEY)
   const role = storedRole === 'ADMIN' || storedRole === 'USER' ? storedRole : undefined
 
@@ -51,7 +51,7 @@ export function readLoginInfo(): LoginInfo | null {
   return {
     userId,
     accessToken,
-    initialConversationId: Number.isFinite(initialConversationId) && initialConversationId > 0
+    initialConversationId: initialConversationId && /^\d+$/.test(initialConversationId)
       ? initialConversationId
       : undefined,
     role

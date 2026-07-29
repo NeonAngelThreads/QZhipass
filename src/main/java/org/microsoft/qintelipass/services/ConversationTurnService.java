@@ -1,5 +1,6 @@
 package org.microsoft.qintelipass.services;
 
+import org.microsoft.qintelipass.agent.react.ReActResult;
 import org.microsoft.qintelipass.ai.AiChatClient;
 import org.microsoft.qintelipass.ai.AiChatResult;
 import org.microsoft.qintelipass.enums.ConversationMessageRole;
@@ -9,6 +10,7 @@ import org.microsoft.qintelipass.exceptions.ForbiddenException;
 import org.microsoft.qintelipass.exceptions.NotFoundException;
 import org.microsoft.qintelipass.models.Conversation;
 import org.microsoft.qintelipass.models.ConversationMessage;
+import org.microsoft.qintelipass.models.User;
 import org.microsoft.qintelipass.repository.ConversationMessageRepository;
 import org.microsoft.qintelipass.repository.ConversationRepository;
 import org.microsoft.qintelipass.request.ConversationTurnRequest;
@@ -30,8 +32,11 @@ public class ConversationTurnService {
     private final AiModelService aiModelService;
     private final ConversationContextService contextService;
     private final AiChatClient aiChatClient;
+    private final AgentInvocationService agentInvocationService;
     private final ConversationTitleGenerator titleGenerator;
     private final TokenCounter tokenCounter;
+    private final CensorService censorService;
+    private final UserService userService;
     private final int maxCompletionTokens;
 
     public ConversationTurnService(
@@ -40,8 +45,11 @@ public class ConversationTurnService {
             AiModelService aiModelService,
             ConversationContextService contextService,
             AiChatClient aiChatClient,
+            AgentInvocationService agentInvocationService,
             ConversationTitleGenerator titleGenerator,
             TokenCounter tokenCounter,
+            CensorService censorService,
+            UserService userService,
             @Value("${ai.completion.max-tokens:1000}") int maxCompletionTokens
     ) {
         this.conversationRepository = conversationRepository;
@@ -49,8 +57,11 @@ public class ConversationTurnService {
         this.aiModelService = aiModelService;
         this.contextService = contextService;
         this.aiChatClient = aiChatClient;
+        this.agentInvocationService = agentInvocationService;
         this.titleGenerator = titleGenerator;
         this.tokenCounter = tokenCounter;
+        this.censorService = censorService;
+        this.userService = userService;
         this.maxCompletionTokens = maxCompletionTokens;
     }
 
@@ -82,17 +93,31 @@ public class ConversationTurnService {
         }
 
         ConversationMessage userMessage = findOrCreateMessage(
-                conversation, ConversationMessageRole.USER, prompt, effectiveModelKey, requestId);
+                conversation, ConversationMessageRole.USER, prompt, effectiveModelKey, requestId, null);
 
         touchConversation(conversation, false);
         conversation = conversationRepository.saveAndFlush(conversation);
 
         ConversationContextService.PreparedContext context =
                 contextService.prepare(conversation, userMessage.getId(), prompt);
-        AiChatResult result = aiChatClient.complete(context.messages(), maxCompletionTokens, 0.7);
+        Long agentId = request == null ? null : request.getAgentId();
+        AiChatResult result;
+        if (agentId == null) {
+            result = aiChatClient.complete(context.messages(), maxCompletionTokens, 0.7);
+        } else {
+            ReActResult agentResult = agentInvocationService.invoke(
+                    userId, agentId, context.messages(), requestId);
+            result = new AiChatResult(
+                    agentResult.answer(),
+                    agentResult.promptTokens(),
+                    agentResult.completionTokens(),
+                    agentResult.promptTokens() + agentResult.completionTokens()
+            );
+        }
 
         ConversationMessage assistantMessage = findOrCreateMessage(
-                conversation, ConversationMessageRole.ASSISTANT, result.content(), effectiveModelKey, requestId);
+                conversation, ConversationMessageRole.ASSISTANT, result.content(), effectiveModelKey, requestId, agentId);
+        checkSensitiveContent(userId, prompt, assistantMessage.getContent(), effectiveModelKey);
         boolean firstAnswer = conversation.getFirstAnsweredAt() == null;
         touchConversation(conversation, true);
         if (firstAnswer) {
@@ -140,6 +165,7 @@ public class ConversationTurnService {
             String content,
             String modelKey,
             String requestId,
+            Long agentId,
             ConversationMessageStatus status
     ) {
         ConversationMessage message = new ConversationMessage();
@@ -148,6 +174,7 @@ public class ConversationTurnService {
         message.setContent(content);
         message.setModelKey(modelKey);
         message.setRequestId(requestId);
+        message.setAgentId(agentId);
         message.setStatus(status);
         message.setTokenCount(tokenCounter.count(content));
         return messageRepository.saveAndFlush(message);
@@ -158,7 +185,8 @@ public class ConversationTurnService {
             ConversationMessageRole role,
             String content,
             String modelKey,
-            String requestId
+            String requestId,
+            Long agentId
     ) {
         ConversationMessage existing = messageRepository
                 .findFirstByConversation_IdAndRequestIdAndRole(conversation.getId(), requestId, role)
@@ -168,7 +196,8 @@ public class ConversationTurnService {
         }
         try {
             return saveMessage(
-                    conversation, role, content, modelKey, requestId, ConversationMessageStatus.COMPLETED);
+                    conversation, role, content, modelKey, requestId, agentId,
+                    ConversationMessageStatus.COMPLETED);
         } catch (DataIntegrityViolationException duplicateRequest) {
             return messageRepository
                     .findFirstByConversation_IdAndRequestIdAndRole(conversation.getId(), requestId, role)
@@ -183,6 +212,31 @@ public class ConversationTurnService {
         conversation.setLastSavedAt(now);
         if (answered && conversation.getFirstAnsweredAt() == null) {
             conversation.setFirstAnsweredAt(now);
+        }
+    }
+
+    private void checkSensitiveContent(
+            Long userId,
+            String input,
+            String output,
+            String modelKey
+    ) {
+        try {
+            User user = userService.getUserById(userId);
+            if (user == null) {
+                return;
+            }
+            censorService.checkAndRecord(
+                    userId,
+                    user.getName(),
+                    user.getPhone(),
+                    user.getDepartment() == null ? "" : user.getDepartment(),
+                    modelKey == null ? "" : modelKey,
+                    input,
+                    output
+            );
+        } catch (RuntimeException ignored) {
+            // Censor recording must not make a completed AI turn fail.
         }
     }
 

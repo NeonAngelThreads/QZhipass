@@ -54,6 +54,9 @@ public class ConversationMessage {
     @Column(name = "request_id", length = 64)
     private String requestId;
 
+    @Column(name = "agent_id")
+    private Long agentId;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 

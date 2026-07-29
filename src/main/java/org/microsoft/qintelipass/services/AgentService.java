@@ -1,6 +1,8 @@
 package org.microsoft.qintelipass.services;
 
 import lombok.extern.slf4j.Slf4j;
+import org.microsoft.qintelipass.agent.runtime.AgentRuntimeCacheService;
+import org.microsoft.qintelipass.agent.runtime.AgentRuntimeConfigAssembler;
 import org.microsoft.qintelipass.exceptions.BadRequestException;
 import org.microsoft.qintelipass.exceptions.ConflictException;
 import org.microsoft.qintelipass.exceptions.NotFoundException;
@@ -29,13 +31,19 @@ public class AgentService {
 
     private final UserAgentRepository userAgentRepository;
     private final PublicAgentTemplateRepository publicTemplateRepository;
+    private final AgentRuntimeConfigAssembler runtimeConfigAssembler;
+    private final AgentRuntimeCacheService runtimeCacheService;
 
     public AgentService(
             UserAgentRepository userAgentRepository,
-            PublicAgentTemplateRepository publicTemplateRepository
+            PublicAgentTemplateRepository publicTemplateRepository,
+            AgentRuntimeConfigAssembler runtimeConfigAssembler,
+            AgentRuntimeCacheService runtimeCacheService
     ) {
         this.userAgentRepository = userAgentRepository;
         this.publicTemplateRepository = publicTemplateRepository;
+        this.runtimeConfigAssembler = runtimeConfigAssembler;
+        this.runtimeCacheService = runtimeCacheService;
     }
 
     /**
@@ -65,7 +73,8 @@ public class AgentService {
                 .status(UserAgent.STATUS_ACTIVE)
                 .build();
 
-        UserAgent saved = userAgentRepository.save(agent);
+        UserAgent saved = userAgentRepository.saveAndFlush(agent);
+        runtimeCacheService.putAfterCommit(runtimeConfigAssembler.fromUserAgent(saved));
         log.info("User {} created agent: id={}, name={}", userId, saved.getId(), saved.getName());
         return AgentResponse.fromUserAgent(saved);
     }
@@ -95,16 +104,19 @@ public class AgentService {
     }
 
     /**
-     * 删除用户自己的Agent（软删除）
+     * 物理删除用户自己的Agent。
      */
     @Transactional
     public void deleteAgent(Long userId, Long agentId) {
-        UserAgent agent = userAgentRepository.findByIdAndUserIdAndStatus(agentId, userId, UserAgent.STATUS_ACTIVE)
+        UserAgent agent = userAgentRepository.findByIdAndUserId(agentId, userId)
                 .orElseThrow(() -> new NotFoundException("Agent不存在或不属于当前用户"));
 
-        agent.setStatus(UserAgent.STATUS_DELETED);
-        userAgentRepository.save(agent);
-        log.info("User {} deleted agent: id={}, name={}", userId, agent.getId(), agent.getName());
+        int deleted = userAgentRepository.hardDeleteByIdAndUserId(agentId, userId);
+        if (deleted != 1 || userAgentRepository.existsById(agentId)) {
+            throw new IllegalStateException("Agent物理删除失败");
+        }
+        runtimeCacheService.evictUserAgentAfterCommit(userId, agentId);
+        log.info("User {} physically deleted agent: id={}, name={}", userId, agent.getId(), agent.getName());
     }
 
     // ---- 校验逻辑 ----

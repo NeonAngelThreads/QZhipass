@@ -14,6 +14,7 @@ $env:JWT_SECRET = "replace-with-a-random-secret-at-least-32-bytes"
 $env:JWT_EXPIRATION_MS = "28800000"
 
 $env:AI_API_KEY = "replace-with-the-test-ai-key"
+$env:AGENT_AI_API_KEY = "replace-with-the-agent-ai-key"
 $env:AI_API_BASE = "https://api.deepseek.com/v1"
 $env:AI_CHAT_MODEL = "deepseek-chat"
 

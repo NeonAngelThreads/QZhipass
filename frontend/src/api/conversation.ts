@@ -7,7 +7,7 @@ export interface ApiResponse<T> {
 }
 
 export interface ConversationPayload {
-  id: number
+  id: string
   title: string
   modelKey?: string | null
   createdAt: string
@@ -15,7 +15,7 @@ export interface ConversationPayload {
 }
 
 export interface ConversationMessagePayload {
-  id: number
+  id: string
   role: 'USER' | 'ASSISTANT' | 'SYSTEM'
   content: string
   createdAt: string
@@ -40,7 +40,7 @@ export async function listConversations(page = 0, limit = 20) {
   return response.data.data ?? []
 }
 
-export async function getConversation(conversationId: number) {
+export async function getConversation(conversationId: string) {
   const response = await http.get<ApiResponse<ConversationDetailPayload>>(`/v1/conversations/${conversationId}`)
   if (!response.data.data) throw new Error(response.data.message || '读取对话失败')
   return response.data.data
@@ -53,7 +53,7 @@ export async function createConversation(modelKey?: string) {
 }
 
 export async function sendConversationTurn(
-  conversationId: number | null,
+  conversationId: string | null,
   prompt: string,
   modelKey: string,
   requestId: string

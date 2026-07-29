@@ -14,7 +14,6 @@ import org.microsoft.qintelipass.request.SaveConversationMessageRequest;
 import org.microsoft.qintelipass.request.UpdateConversationModelRequest;
 import org.microsoft.qintelipass.request.UpdateConversationTitleRequest;
 import org.microsoft.qintelipass.response.*;
-import org.microsoft.qintelipass.util.Snowflake;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -58,7 +57,6 @@ public class ConversationService {
         String modelKey = aiModelService.normalizeOptionalModelKey(request == null ? null : request.getModelKey());
 
         Conversation conversation = new Conversation();
-        conversation.setId(Snowflake.nextId());
         conversation.setUserId(userId);
         conversation.setTitle(Conversation.DEFAULT_TITLE);
         conversation.setModelKey(modelKey);
@@ -123,7 +121,6 @@ public class ConversationService {
         }
 
         ConversationMessage message = new ConversationMessage();
-        message.setId(Snowflake.nextId());
         message.setConversation(conversation);
         message.setRole(role);
         message.setContent(content);

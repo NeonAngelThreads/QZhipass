@@ -34,7 +34,7 @@ public class DeepSeekAiChatClient implements AiChatClient {
     @Override
     public AiChatResult complete(List<AiChatMessage> messages, int maxCompletionTokens, double temperature) {
         if (!StringUtils.hasText(apiKey)) {
-            throw new BadRequestException("AI_API_KEY is not configured.");
+            throw new BadRequestException("AGENT_AI_API_KEY or AI_API_KEY is not configured.");
         }
 
         CompletionResponse response;

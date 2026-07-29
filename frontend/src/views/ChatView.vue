@@ -1,10 +1,20 @@
 <script setup lang="ts">
 import {type Component, computed, nextTick, onBeforeUnmount, onMounted, ref, watch} from 'vue'
-import {ElMessage} from 'element-plus'
+import {ElMessage, ElMessageBox} from 'element-plus'
 import {useRouter} from 'vue-router'
 import BrandLogo from '../components/BrandLogo.vue'
+import CreateAgentDialog from '../components/CreateAgentDialog.vue'
 import http, {getErrorMessage} from '../api/http'
 import {readLoginInfo, saveInitialConversationId} from '../api/session'
+import {
+  createAgent as createAgentRequest,
+  deleteAgent as deleteAgentRequest,
+  invokeAgentStream,
+  listAgents,
+  type AgentPayload,
+} from '../api/agent'
+import {sendConversationTurn} from '../api/conversation'
+import type {CreateAgentPayload} from '../components/types'
 import {useAuthStore} from '../stores/auth'
 import {
   Bell,
@@ -29,11 +39,19 @@ const authStore = useAuthStore()
 const searchQuery = ref('')
 const inputText = ref('')
 const selectedModel = ref('gpt4-omni')
-const selectedAgent = ref('data-analyst')
-const selectedChatId = ref<number | null>(null)
+const selectedAgentId = ref<string | null>(null)
+const selectedChatId = ref<string | null>(null)
 const showModelDropdown = ref(false)
 const showAgentDropdown = ref(false)
 const creatingConversation = ref(false)
+const loadingAgents = ref(false)
+const sendingMessage = ref(false)
+const deletingAgentIds = ref(new Set<string>())
+const createAgentDialogVisible = ref(false)
+const savingAgent = ref(false)
+const compositionActive = ref(false)
+const invokeAbortController = ref<AbortController | null>(null)
+const agentHotkey = ref('!')
 
 const tokenLimit = 100000
 const tokenUsed = 64000
@@ -47,11 +65,7 @@ const models = [
   { value: 'deepseek-v4', label: 'DeepSeek-V4' },
 ]
 
-const agents = [
-  { value: 'data-analyst', label: 'Data Analyst Agent' },
-  { value: 'copywriter', label: 'Copywriter Agent' },
-  { value: 'coder', label: 'Code Assistant Agent' },
-]
+const agents = ref<AgentPayload[]>([])
 
 interface ApiResponse<T> {
   success?: boolean
@@ -60,13 +74,13 @@ interface ApiResponse<T> {
 }
 
 interface ConversationPayload {
-  id: number
+  id: string
   title?: string
   modelKey?: string | null
 }
 
 interface ChatItem {
-  id: number
+  id: string
   title: string
   icon: Component
 }
@@ -83,6 +97,8 @@ interface Message {
   role: 'user' | 'ai'
   content: string
   timestamp: string
+  agentName?: string
+  statusText?: string
   actions?: string[]
 }
 const messages = ref<Message[]>([])
@@ -93,7 +109,7 @@ const currentChat = computed(() => chats.value.find(c => c.id === selectedChatId
 const charCount = computed(() => inputText.value.length)
 const maxChars = 2000
 
-function selectChat(id: number) {
+function selectChat(id: string) {
   selectedChatId.value = id
 }
 
@@ -169,51 +185,276 @@ function toggleModelDropdown() {
   showModelDropdown.value = !showModelDropdown.value
 }
 
+function currentTimestamp() {
+  return new Date().toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  })
+}
+
+function renderMarkdown(content: string) {
+  return content
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    .replace(/^### (.*)$/gm, '<h4 class="text-base font-semibold mt-2 mb-1">$1</h4>')
+    .replace(/\n/g, '<br>')
+}
+
+function hotkeyStorageKey() {
+  return `agent_hotkey:${readLoginInfo()?.userId ?? 'anonymous'}`
+}
+
+function loadAgentHotkey() {
+  const saved = window.localStorage.getItem(hotkeyStorageKey())
+  agentHotkey.value = saved && Array.from(saved).length === 1 ? saved : '!'
+}
+
+function isTypingTargetWithContent(event: KeyboardEvent) {
+  const target = event.target
+  if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement) {
+    return target.value.length > 0
+  }
+  return target instanceof HTMLElement && target.isContentEditable
+}
+
+async function refreshAgents() {
+  if (loadingAgents.value) return
+  loadingAgents.value = true
+  try {
+    agents.value = await listAgents()
+    if (selectedAgentId.value !== null && !agents.value.some(agent => agent.id === selectedAgentId.value)) {
+      selectedAgentId.value = null
+    }
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '读取Agent列表失败'))
+  } finally {
+    loadingAgents.value = false
+  }
+}
+
+async function openAgentDropdown() {
+  showModelDropdown.value = false
+  await refreshAgents()
+  showAgentDropdown.value = true
+}
+
+function closeAgentDropdown() {
+  showAgentDropdown.value = false
+}
+
+async function configureAgentHotkey() {
+  try {
+    const result = await ElMessageBox.prompt('请输入一个新的 Agent 调用热键', '设置调用热键', {
+      inputValue: agentHotkey.value,
+      confirmButtonText: '保存',
+      cancelButtonText: '取消',
+      inputValidator: value => {
+        const normalized = value.trim()
+        if (Array.from(normalized).length !== 1) return '请输入单个字符'
+        if (['Escape', '#', '~', '～', 'Enter'].includes(normalized)) return '该按键已被系统占用'
+        return true
+      },
+    })
+    const nextHotkey = result.value.trim()
+    window.localStorage.setItem(hotkeyStorageKey(), nextHotkey)
+    agentHotkey.value = nextHotkey
+    closeAgentDropdown()
+    ElMessage.success(`Agent调用热键已设置为 ${nextHotkey}`)
+  } catch {
+    // User cancelled.
+  }
+}
+
+function openCreateAgentDialog() {
+  closeAgentDropdown()
+  createAgentDialogVisible.value = true
+}
+
+async function createAgent(payload: CreateAgentPayload) {
+  if (savingAgent.value) return
+  savingAgent.value = true
+  try {
+    const created = await createAgentRequest(payload.agentName, payload.promptContent)
+    await refreshAgents()
+    selectedAgentId.value = created.id
+    createAgentDialogVisible.value = false
+    ElMessage.success(`Agent「${created.name}」创建成功`)
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, 'Agent创建失败'))
+  } finally {
+    savingAgent.value = false
+  }
+}
+
+async function confirmDeleteAgent(agent: AgentPayload) {
+  if (agent.source !== 'USER' || deletingAgentIds.value.has(agent.id)) return
+  try {
+    await ElMessageBox.confirm(`确定要删除${agent.name}吗？`, '删除 Agent', {
+      type: 'warning',
+      confirmButtonText: '确定删除',
+      cancelButtonText: '取消',
+    })
+  } catch {
+    return
+  }
+
+  deletingAgentIds.value = new Set(deletingAgentIds.value).add(agent.id)
+  try {
+    await deleteAgentRequest(agent.id)
+    await refreshAgents()
+    if (selectedAgentId.value === agent.id) selectedAgentId.value = null
+    ElMessage.success('Agent已删除')
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, 'Agent删除失败'))
+  } finally {
+    const next = new Set(deletingAgentIds.value)
+    next.delete(agent.id)
+    deletingAgentIds.value = next
+  }
+}
+
 function handleGlobalKeydown(e: KeyboardEvent) {
-  if (e.key === '#') {
+  if (e.isComposing || compositionActive.value) return
+
+  if (e.key === '#' && !isTypingTargetWithContent(e)) {
     e.preventDefault()
     toggleModelDropdown()
   }
-  if (e.key === 'Escape' && showModelDropdown.value) {
+  if ((e.key === agentHotkey.value || (agentHotkey.value === '!' && e.key === '！'))
+      && !isTypingTargetWithContent(e)) {
+    e.preventDefault()
+    void openAgentDropdown()
+  }
+  if ((e.key === '~' || e.key === '～') && !isTypingTargetWithContent(e)) {
+    e.preventDefault()
+    openCreateAgentDialog()
+  }
+  if (e.key === 'Escape') {
     showModelDropdown.value = false
+    closeAgentDropdown()
   }
 }
 
 onMounted(() => {
   initializeConversationFromLogin()
+  loadAgentHotkey()
+  void refreshAgents()
   window.addEventListener('keydown', handleGlobalKeydown)
 })
 
 onBeforeUnmount(() => {
+  invokeAbortController.value?.abort()
   window.removeEventListener('keydown', handleGlobalKeydown)
 })
 
-function selectAgent(val: string) {
-  selectedAgent.value = val
-  showAgentDropdown.value = false
+function selectAgent(agentId: string | null) {
+  selectedAgentId.value = agentId
+  closeAgentDropdown()
 }
 
-function sendMessage() {
+async function sendMessage() {
   const text = inputText.value.trim()
-  if (!text) return
+  if (!text || sendingMessage.value) return
+
+  if (selectedChatId.value === null) {
+    await createNewConversation({ silent: true })
+  }
+  const conversationId = selectedChatId.value
+  if (conversationId === null) {
+    ElMessage.error('新建对话失败')
+    return
+  }
+
+  const selectedAgent = agents.value.find(agent => agent.id === selectedAgentId.value)
+  const requestId = typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `agent-${Date.now()}-${Math.random().toString(16).slice(2)}`
+  const userMessageId = Date.now()
+  const assistantMessageId = userMessageId + 1
+  const timestamp = currentTimestamp()
   messages.value.push({
-    id: Date.now(),
+    id: userMessageId,
     role: 'user',
     content: text,
-    timestamp: new Date().toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    }),
+    timestamp,
+  }, {
+    id: assistantMessageId,
+    role: 'ai',
+    content: '',
+    timestamp,
+    agentName: selectedAgent?.name,
+    statusText: selectedAgent ? `正在调用${selectedAgent.name}来构思回答...` : '正在生成回答...',
   })
   inputText.value = ''
-  nextTick(scrollToBottom)
+  sendingMessage.value = true
+  await nextTick(scrollToBottom)
+
+  try {
+    if (selectedAgent) {
+      invokeAbortController.value = new AbortController()
+      await invokeAgentStream(
+        selectedAgent.id,
+        {
+          conversationId,
+          prompt: text,
+          modelKey: selectedModel.value,
+          requestId,
+        },
+        event => {
+          const assistant = messages.value.find(message => message.id === assistantMessageId)
+          if (!assistant) return
+          if (event.message && event.type !== 'error') assistant.statusText = event.message
+          if (event.type === 'content' && event.content) {
+            assistant.statusText = ''
+            assistant.content += event.content
+          }
+          if (event.type === 'complete') {
+            assistant.statusText = ''
+            if (!assistant.content && event.turn?.assistantMessage.content) {
+              assistant.content = event.turn.assistantMessage.content
+            }
+            const chat = chats.value.find(item => item.id === conversationId)
+            if (chat && event.turn?.conversation.title) chat.title = event.turn.conversation.title
+          }
+        },
+        invokeAbortController.value.signal,
+      )
+    } else {
+      const turn = await sendConversationTurn(
+        conversationId,
+        text,
+        selectedModel.value,
+        requestId,
+      )
+      const assistant = messages.value.find(message => message.id === assistantMessageId)
+      if (assistant) {
+        assistant.statusText = ''
+        assistant.content = turn.assistantMessage.content
+      }
+      const chat = chats.value.find(item => item.id === conversationId)
+      if (chat) chat.title = turn.conversation.title || chat.title
+    }
+  } catch (error) {
+    messages.value = messages.value.filter(message => message.id !== assistantMessageId)
+    ElMessage.error(selectedAgent
+      ? 'Agent调用失败，请稍后重试。'
+      : getErrorMessage(error, 'AI 回复失败'))
+  } finally {
+    invokeAbortController.value = null
+    sendingMessage.value = false
+    await nextTick(scrollToBottom)
+  }
 }
 
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Enter' && !e.shiftKey) {
     e.preventDefault()
-    sendMessage()
+    void sendMessage()
   }
 }
 
@@ -234,7 +475,11 @@ watch(
 )
 
 const modelLabel = computed(() => models.find(m => m.value === selectedModel.value)?.label ?? '')
-const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.value)?.label ?? '')
+const selectedAgent = computed(() => agents.value.find(agent => agent.id === selectedAgentId.value))
+const agentLabel = computed(() => selectedAgent.value?.name ?? '调用agent')
+const existingAgentNames = computed(() =>
+  agents.value.filter(agent => agent.source === 'USER').map(agent => agent.name),
+)
 </script>
 
 <template>
@@ -398,18 +643,15 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
               </div>
               <div class="min-w-0 max-w-[80%]">
                 <!-- AI name -->
-                <p class="mb-1 text-xs font-medium text-gray-500">Data Analyst Agent</p>
+                <p class="mb-1 text-xs font-medium text-gray-500">{{ msg.agentName || 'AI 助手' }}</p>
+                <p v-if="msg.statusText" class="mb-1 text-xs text-gray-400">{{ msg.statusText }}</p>
                 <!-- AI bubble -->
                 <div
+                  v-if="msg.content"
                   class="rounded-2xl rounded-tl-sm bg-white px-4 py-3 text-sm text-gray-700 shadow-sm leading-relaxed"
                 >
                   <!-- Basic markdown rendering -->
-                  <div v-html="
-                    msg.content
-                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                      .replace(/### (.*)/g, '<h4 class=\'text-base font-semibold mt-2 mb-1\'>$1</h4>')
-                      .replace(/\n/g, '<br>')
-                  "></div>
+                  <div v-html="renderMarkdown(msg.content)"></div>
                 </div>
                 <!-- Action buttons -->
                 <div v-if="msg.actions && msg.actions.length" class="mt-2 flex flex-wrap gap-2">
@@ -463,7 +705,7 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
             <div class="relative">
               <button
                 class="flex items-center gap-1 rounded-md border border-gray-200 px-2 py-1 text-xs font-medium text-blue-600 transition hover:bg-blue-50"
-                @click.stop="showAgentDropdown = !showAgentDropdown"
+                @click.stop="showAgentDropdown ? closeAgentDropdown() : openAgentDropdown()"
               >
                 {{ agentLabel }}
                 <svg class="h-3 w-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -475,13 +717,39 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
                 class="absolute bottom-full left-0 mb-1 w-48 rounded-lg border border-gray-200 bg-white py-1 shadow-lg z-10"
               >
                 <button
-                  v-for="a in agents"
-                  :key="a.value"
-                  class="flex w-full items-center px-3 py-2 text-xs transition hover:bg-blue-50"
-                  :class="selectedAgent === a.value ? 'text-blue-600 font-medium bg-blue-50' : 'text-gray-600'"
-                  @click.stop="selectAgent(a.value)"
+                  class="flex w-full items-center px-3 py-2 text-xs text-gray-600 transition hover:bg-blue-50"
+                  @click.stop="selectAgent(null)"
                 >
-                  {{ a.label }}
+                  不调用 Agent
+                </button>
+                <button
+                  v-for="a in agents"
+                  :key="a.id"
+                  class="flex w-full items-center px-3 py-2 text-xs transition hover:bg-blue-50"
+                  :class="selectedAgentId === a.id ? 'text-blue-600 font-medium bg-blue-50' : 'text-gray-600'"
+                  @click.stop="selectAgent(a.id)"
+                  @contextmenu.prevent="confirmDeleteAgent(a)"
+                >
+                  <span class="flex-1 text-left">{{ a.name }}</span>
+                  <span
+                    v-if="a.source === 'USER'"
+                    class="text-gray-400"
+                    @click.stop="confirmDeleteAgent(a)"
+                  >
+                    {{ deletingAgentIds.has(a.id) ? '删除中...' : '删除' }}
+                  </span>
+                </button>
+                <button
+                  class="flex w-full items-center px-3 py-2 text-xs text-gray-600 transition hover:bg-blue-50"
+                  @click.stop="openCreateAgentDialog"
+                >
+                  创建 Agent
+                </button>
+                <button
+                  class="flex w-full items-center px-3 py-2 text-xs text-gray-600 transition hover:bg-blue-50"
+                  @click.stop="configureAgentHotkey"
+                >
+                  设置调用热键（{{ agentHotkey }}）
                 </button>
               </div>
             </div>
@@ -499,7 +767,10 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
               rows="3"
               placeholder="输入您的问题或指令 (Shift + Enter 换行)..."
               :maxlength="maxChars"
+              :disabled="sendingMessage"
               @keydown="handleKeydown"
+              @compositionstart="compositionActive = true"
+              @compositionend="compositionActive = false"
             ></textarea>
             <!-- Bottom-left: attach icon -->
             <button
@@ -518,7 +789,7 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
               </span>
               <button
                 class="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 text-white transition hover:bg-blue-700 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                :disabled="!inputText.trim()"
+                :disabled="!inputText.trim() || sendingMessage"
                 @click="sendMessage"
               >
                 <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -530,5 +801,11 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
         </div>
       </div>
     </div>
+    <CreateAgentDialog
+      v-model="createAgentDialogVisible"
+      :existing-names="existingAgentNames"
+      :submitting="savingAgent"
+      @submit="createAgent"
+    />
   </div>
 </template>

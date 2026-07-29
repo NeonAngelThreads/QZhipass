@@ -3,6 +3,7 @@ package org.microsoft.qintelipass.services;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.microsoft.qintelipass.agent.react.ReActResult;
 import org.microsoft.qintelipass.ai.AiChatClient;
 import org.microsoft.qintelipass.ai.AiChatMessage;
 import org.microsoft.qintelipass.ai.AiChatResult;
@@ -36,8 +37,11 @@ class ConversationTurnServiceTests {
     @Mock private AiModelService aiModelService;
     @Mock private ConversationContextService contextService;
     @Mock private AiChatClient aiChatClient;
+    @Mock private AgentInvocationService agentInvocationService;
     @Mock private ConversationTitleGenerator titleGenerator;
     @Mock private TokenCounter tokenCounter;
+    @Mock private CensorService censorService;
+    @Mock private UserService userService;
 
     private Conversation conversation;
     private ConversationTurnService service;
@@ -56,7 +60,8 @@ class ConversationTurnServiceTests {
         when(conversationRepository.findById(1L)).thenReturn(Optional.of(conversation));
         service = new ConversationTurnService(
                 conversationRepository, messageRepository, aiModelService, contextService,
-                aiChatClient, titleGenerator, tokenCounter, 1000);
+                aiChatClient, agentInvocationService, titleGenerator, tokenCounter,
+                censorService, userService, 1000);
     }
 
     @Test
@@ -139,6 +144,35 @@ class ConversationTurnServiceTests {
 
         assertThat(savedConversation.get().getStatus()).isEqualTo(Conversation.STATUS_FAILED);
         assertThat(savedConversation.get().getFirstAnsweredAt()).isNull();
+    }
+
+    @Test
+    void invokesAgentAndPersistsTheRealAgentId() {
+        AtomicLong ids = new AtomicLong(30);
+        when(aiModelService.normalizeOptionalModelKey("deepseek-v4")).thenReturn("deepseek-v4");
+        when(messageRepository.saveAndFlush(any())).thenAnswer(invocation -> {
+            ConversationMessage message = invocation.getArgument(0);
+            message.setId(ids.incrementAndGet());
+            message.setCreatedAt(LocalDateTime.now());
+            return message;
+        });
+        when(conversationRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
+        when(contextService.prepare(any(), any(), any())).thenReturn(
+                new ConversationContextService.PreparedContext(
+                        List.of(new AiChatMessage("user", "hello")), 100));
+        when(agentInvocationService.invoke(eq(1001L), eq(99L), any(), eq("req-agent")))
+                .thenReturn(new ReActResult("agent answer", 120, 30, 2));
+        when(titleGenerator.generateTitle("hello", "agent answer")).thenReturn("Agent标题");
+        when(tokenCounter.count(any())).thenReturn(2);
+
+        ConversationTurnRequest request = request("hello", "req-agent");
+        request.setAgentId(99L);
+        ConversationTurnResponse response = service.send(1001L, 1L, request);
+
+        assertThat(response.assistantMessage().content()).isEqualTo("agent answer");
+        assertThat(response.assistantMessage().agentId()).isEqualTo(99L);
+        verify(agentInvocationService).invoke(eq(1001L), eq(99L), any(), eq("req-agent"));
+        verify(aiChatClient, never()).complete(any(), anyInt(), anyDouble());
     }
 
     private ConversationTurnRequest request(String prompt, String requestId) {

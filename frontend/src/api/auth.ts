@@ -41,17 +41,6 @@ function readIdentifier(value: unknown) {
   return readString(value)
 }
 
-function readNumber(value: unknown) {
-  if (typeof value === 'number' && Number.isFinite(value)) {
-    return value
-  }
-  if (typeof value === 'string' && value.trim()) {
-    const parsed = Number(value)
-    return Number.isFinite(parsed) ? parsed : undefined
-  }
-  return undefined
-}
-
 function readRole(value: unknown): UserRole | undefined {
   return value === 'ADMIN' || value === 'USER' ? value : undefined
 }
@@ -85,9 +74,10 @@ function normalizeLoginInfo(response: PortalLoginResponse): LoginInfo {
     readString(response.accessToken) ||
     readString(response.token)
   const initialConversationId =
-    readNumber(payload.initialConversationId) ||
-    readNumber(payload.initial_conversation_id) ||
-    readNumber(conversationPayload.id)
+    readIdentifier(payload.initialConversationId) ||
+    readIdentifier(payload.initial_conversation_id) ||
+    readIdentifier(conversationPayload.id) ||
+    undefined
   const role =
     readRole(response.role) ||
     readRole(payload.role) ||
