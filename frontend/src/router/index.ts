@@ -6,6 +6,8 @@ import SensitiveWordsView from '../views/SensitiveWordsView.vue'
 import SecurityLogView from '../views/SecurityLogView.vue'
 import AlertCenterView from '../views/AlertCenterView.vue'
 import UserManagementView from '../views/UserManagementView.vue'
+import AccountSettingsView from '../views/AccountSettingsView.vue'
+import { isLoggedIn } from '../api/session'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -28,6 +30,17 @@ const router = createRouter({
       path: '/chat',
       name: 'chat',
       component: ChatView
+    },
+    {
+      path: '/account/settings',
+      name: 'account-settings',
+      component: AccountSettingsView,
+      beforeEnter: () => isLoggedIn()
+        ? true
+        : {
+            name: 'login',
+            query: { redirect: '/account/settings' }
+          }
     },
     {
       path: '/admin/sensitive-words',

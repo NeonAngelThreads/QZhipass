@@ -1,7 +1,7 @@
-import http, {getErrorMessage} from './http'
-import {type LoginInfo, saveLoginInfo} from './session'
+import http, { getErrorMessage } from './http'
+import { type LoginInfo, saveLoginInfo, type UserRole } from './session'
 
-type PortalLoginType = 'MOBILE_PWD' | 'MOBILE_CODE'
+type PortalLoginType = 'MOBILE_PWD' | 'EMAIL_PWD' | 'mobile'
 
 interface PortalLoginResponse {
   success?: boolean
@@ -12,6 +12,7 @@ interface PortalLoginResponse {
   access_token?: unknown
   accessToken?: unknown
   token?: unknown
+  role?: unknown
 }
 
 interface LoginStatusResponse {
@@ -19,9 +20,14 @@ interface LoginStatusResponse {
 }
 
 const MOBILE_PATTERN = /^1[3-9]\d{9}$/
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 export function isValidMobile(mobile: string) {
   return MOBILE_PATTERN.test(mobile)
+}
+
+export function isValidEmail(email: string) {
+  return EMAIL_PATTERN.test(email)
 }
 
 function readString(value: unknown) {
@@ -46,12 +52,20 @@ function readNumber(value: unknown) {
   return undefined
 }
 
-function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): LoginInfo {
+function readRole(value: unknown): UserRole | undefined {
+  return value === 'ADMIN' || value === 'USER' ? value : undefined
+}
+
+function normalizeLoginInfo(response: PortalLoginResponse): LoginInfo {
   if (response.success === false) {
     throw new Error(response.message || '登录失败')
   }
 
   const payload = response.data && typeof response.data === 'object' ? response.data : {}
+  const userPayload =
+    payload.user && typeof payload.user === 'object'
+      ? payload.user as Record<string, unknown>
+      : {}
   const conversationPayload =
     payload.conversation && typeof payload.conversation === 'object'
       ? payload.conversation as Record<string, unknown>
@@ -59,6 +73,8 @@ function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): Logi
   const userId =
     readIdentifier(payload.user_id) ||
     readIdentifier(payload.userId) ||
+    readIdentifier(payload.id) ||
+    readIdentifier(userPayload.id) ||
     readIdentifier(response.user_id) ||
     readIdentifier(response.userId)
   const accessToken =
@@ -67,40 +83,43 @@ function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): Logi
     readString(payload.token) ||
     readString(response.access_token) ||
     readString(response.accessToken) ||
-    readString(response.token) ||
-    readString(response.message)
+    readString(response.token)
   const initialConversationId =
     readNumber(payload.initialConversationId) ||
     readNumber(payload.initial_conversation_id) ||
     readNumber(conversationPayload.id)
+  const role =
+    readRole(response.role) ||
+    readRole(payload.role) ||
+    readRole(userPayload.role)
 
   if (!userId) {
-    throw new Error('登录成功但后端未返回 user_id')
+    throw new Error('登录成功但后端未返回用户 ID')
   }
 
   if (!accessToken) {
-    throw new Error('登录成功但后端未返回 access_token')
+    throw new Error('登录成功但后端未返回访问令牌')
   }
 
   return {
     userId,
     accessToken,
-    initialConversationId
+    initialConversationId,
+    role
   }
 }
 
 async function login(
   loginType: PortalLoginType,
   credential: Record<string, string>,
-  mobile: string,
   fallback: string
 ) {
   try {
-    const { data } = await http.post<PortalLoginResponse>('/v1/portal/login', {
+    const { data } = await http.post<PortalLoginResponse>('/v1/auth/portal/login', {
       loginType,
       credential
     })
-    const loginInfo = normalizeLoginInfo(data, mobile)
+    const loginInfo = normalizeLoginInfo(data)
 
     saveLoginInfo(loginInfo)
     return loginInfo
@@ -109,22 +128,23 @@ async function login(
   }
 }
 
-export async function loginByPassword(mobile: string, password: string) {
+export async function loginByPassword(account: string, password: string) {
+  const loginType: PortalLoginType = isValidMobile(account) ? 'MOBILE_PWD' : 'EMAIL_PWD'
+  const accountField = loginType === 'MOBILE_PWD' ? 'mobile' : 'email'
   return login(
-    'MOBILE_PWD',
+    loginType,
     {
-      mobile,
+      [accountField]: account,
       password
     },
-    mobile,
-    '手机号或密码登录失败'
+    isValidEmail(account) ? '邮箱或密码错误' : '手机号或密码错误'
   )
 }
 
 export async function sendSmsCode(mobile: string) {
   try {
-    const { data } = await http.post<PortalLoginResponse>('/v1/portal/send_code', {
-      Phone: mobile
+    const { data } = await http.post<PortalLoginResponse>('/v1/auth/portal/send_code', {
+      phone: mobile
     })
 
     if (data?.success === false) {
@@ -139,12 +159,11 @@ export async function sendSmsCode(mobile: string) {
 
 export async function loginBySms(mobile: string, smsCode: string) {
   return login(
-    'MOBILE_CODE',
+    'mobile',
     {
       mobile,
       smsCode
     },
-    mobile,
     '验证码登录失败'
   )
 }

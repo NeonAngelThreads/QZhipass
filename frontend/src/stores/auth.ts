@@ -12,8 +12,8 @@ export const useAuthStore = defineStore('auth', () => {
     loggedIn.value = true
   }
 
-  async function passwordLogin(mobile: string, password: string) {
-    const data = await loginByPassword(mobile, password)
+  async function passwordLogin(account: string, password: string) {
+    const data = await loginByPassword(account, password)
     setLoginState(data)
     return data
   }

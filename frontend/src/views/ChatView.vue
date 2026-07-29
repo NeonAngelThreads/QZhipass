@@ -363,6 +363,7 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
           <button
             class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600"
             title="用户设置"
+            @click="router.push('/account/settings')"
           >
             <el-icon :size="18"><UserFilled /></el-icon>
           </button>
