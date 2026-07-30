@@ -1,0 +1,2 @@
+# QZhipass
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/3201f2da71b046d6a901fefd9a3d0c2b)](https://app.codacy.com/gh/NeonAngelThreads/QZhipass?utm_source=github.com&utm_medium=referral&utm_content=NeonAngelThreads/QZhipass&utm_campaign=Badge_Grade)
