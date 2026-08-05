@@ -13,6 +13,8 @@ import org.microsoft.qintelipass.entity.User;
 import org.microsoft.qintelipass.dtos.request.LoginRequest;
 import org.microsoft.qintelipass.dtos.request.RegisterRequest;
 import org.microsoft.qintelipass.dtos.response.ResponseBody;
+import org.microsoft.qintelipass.exceptions.UserNotFoundException;
+import org.microsoft.qintelipass.services.UserService;
 import org.microsoft.qintelipass.services.chat.ConversationService;
 import org.microsoft.qintelipass.services.auth.SmsServiceImpl;
 import org.microsoft.qintelipass.services.user.UserDetailsServiceImpl;
@@ -38,6 +40,7 @@ public class AuthController {
     private final SmsServiceImpl smsService;
     private final JwtUtil jwtUtil;
     private final UserDetailsServiceImpl userDetailsService;
+    private final UserService userService;
     private final CredentialManager credentialManager;
     private static final String COOKIE_ROOT = "/";
 
@@ -46,12 +49,13 @@ public class AuthController {
     private final AdminProperties adminProperties;
 
     @Autowired
-    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager, ConversationService conversationService, AdminProperties adminProperties) {
+    public AuthController(LoginStrategyFactory factory, SmsServiceImpl smsService, JwtUtil jwtUtil, UserDetailsServiceImpl userDetailsService, CredentialManager credentialManager, ConversationService conversationService, UserService userService, AdminProperties adminProperties) {
         this.factory = factory;
         this.smsService = smsService;
         this.jwtUtil = jwtUtil;
         this.userDetailsService = userDetailsService;
         this.credentialManager = credentialManager;
+        this.userService = userService;
         this.adminProperties = adminProperties;
     }
 
@@ -103,6 +107,10 @@ public class AuthController {
             return ResponseEntity
                     .badRequest()
                     .body(Map.of("success", false, "message", "请输入正确的手机号码"));
+        }
+
+        if (userService.getUserByPhone(phone) == null){
+            throw new UserNotFoundException("");
         }
 
         // 检查60秒冷却时间
