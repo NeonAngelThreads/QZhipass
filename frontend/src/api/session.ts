@@ -4,7 +4,7 @@ export interface LoginInfo {
   initialConversationId?: number
 }
 
-const USER_ID_KEY = 'user_id'
+const USER_ID_KEY = 'id'
 const ACCESS_TOKEN_KEY = 'access_token'
 const INITIAL_CONVERSATION_ID_KEY = 'initial_conversation_id'
 
