@@ -4,7 +4,6 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import zhCn from 'element-plus/es/locale/lang/zh-cn'
 import BrandLogo from '../components/BrandLogo.vue'
-import { isValidEmail } from '../api/auth'
 import {
   EMAIL_BINDING_MESSAGES,
   EmailBindingApiError,
@@ -13,10 +12,8 @@ import {
   verifyEmailBinding
 } from '../api/emailBinding'
 import { useCountdown } from '../composables/useCountdown'
-import { useAuthStore } from '../stores/auth'
 
 const router = useRouter()
-const authStore = useAuthStore()
 const loading = ref(false)
 const sendingCode = ref(false)
 const verifying = ref(false)
@@ -29,28 +26,21 @@ const form = reactive({
   code: ''
 })
 
-const normalizedEmail = computed(() => form.email.trim())
-const emailValid = computed(() => isValidEmail(normalizedEmail.value))
-const emailError = computed(() => (
-  form.email && !emailValid.value ? '请输入有效的邮箱地址' : ''
-))
 const bindingStateText = computed(() => bound.value ? '邮箱已绑定' : '未绑定')
 const codeButtonText = computed(() => (
-  cooldownSeconds.value > 0
-    ? `${cooldownSeconds.value}秒后重新获取`
-    : '获取验证码'
+    cooldownSeconds.value > 0
+        ? `${cooldownSeconds.value}秒后重新获取`
+        : '获取验证码'
 ))
 const canSendCode = computed(() => (
-  emailValid.value &&
-  cooldownSeconds.value === 0 &&
-  !sendingCode.value &&
-  !verifying.value
+    form.email.trim().length > 0 &&
+    cooldownSeconds.value === 0 &&
+    !sendingCode.value
 ))
 const canVerify = computed(() => (
-  emailValid.value &&
-  /^\d{6}$/.test(form.code) &&
-  !verifying.value &&
-  !sendingCode.value
+    form.email.trim().length > 0 &&
+    /^\d{6}$/.test(form.code) &&
+    !verifying.value
 ))
 
 async function loadStatus(showError = true) {
@@ -70,26 +60,20 @@ async function loadStatus(showError = true) {
 }
 
 function openBindingDialog() {
-  if (bound.value) {
-    return
-  }
   form.email = ''
   form.code = ''
   dialogVisible.value = true
 }
 
 async function handleSendCode() {
-  if (!emailValid.value) {
-    ElMessage.warning('请输入有效的邮箱地址')
-    return
-  }
   if (!canSendCode.value) {
+    ElMessage.warning('请输入邮箱地址')
     return
   }
 
   sendingCode.value = true
   try {
-    const result = await sendEmailBindingCode(normalizedEmail.value)
+    const result = await sendEmailBindingCode(form.email.trim())
     startCountdown(result.data.cooldownSeconds)
     ElMessage.success(result.message)
   } catch (error) {
@@ -104,17 +88,16 @@ async function handleSendCode() {
 
 async function handleVerify() {
   if (!canVerify.value) {
-    ElMessage.warning('请输入有效邮箱地址和6位邮箱验证码')
+    ElMessage.warning('请输入邮箱地址和6位邮箱验证码')
     return
   }
 
   verifying.value = true
   try {
-    const result = await verifyEmailBinding(normalizedEmail.value, form.code)
+    const result = await verifyEmailBinding(form.email.trim(), form.code)
     ElMessage.success(result.message)
     dialogVisible.value = false
     await loadStatus(false)
-    authStore.refreshLoginState()
   } catch (error) {
     ElMessage.error(error instanceof Error ? error.message : EMAIL_BINDING_MESSAGES.bindFailed)
   } finally {
@@ -141,8 +124,8 @@ onMounted(() => loadStatus())
         <h1 class="mb-5 text-xl font-semibold text-gray-800">账号设置</h1>
 
         <div
-          v-loading="loading"
-          class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
+            v-loading="loading"
+            class="rounded-xl border border-gray-200 bg-white p-5 shadow-sm"
         >
           <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
@@ -152,49 +135,40 @@ onMounted(() => loadStatus())
                 <span v-if="maskedEmail" class="ml-2">{{ maskedEmail }}</span>
               </p>
             </div>
-            <el-button
-              type="primary"
-              :disabled="bound"
-              @click="openBindingDialog"
-            >
-              {{ bound ? '已绑定' : '绑定邮箱' }}
-            </el-button>
+            <el-button type="primary" @click="openBindingDialog">绑定邮箱</el-button>
           </div>
         </div>
       </section>
 
       <el-dialog
-        v-model="dialogVisible"
-        title="绑定邮箱"
-        width="min(480px, calc(100vw - 32px))"
-        :close-on-click-modal="false"
+          v-model="dialogVisible"
+          title="绑定邮箱"
+          width="480px"
+          :close-on-click-modal="false"
       >
         <el-form label-position="top" @submit.prevent="handleVerify">
-          <el-form-item label="邮箱地址" :error="emailError">
+          <el-form-item label="邮箱地址">
             <el-input
-              v-model="form.email"
-              maxlength="254"
-              placeholder="请输入邮箱地址"
-              type="email"
-              autocomplete="email"
+                v-model="form.email"
+                maxlength="254"
+                placeholder="请输入邮箱地址"
             />
           </el-form-item>
 
           <el-form-item label="邮箱验证码">
             <div class="flex w-full flex-col gap-3 sm:flex-row">
               <el-input
-                :model-value="form.code"
-                class="min-w-0 flex-1"
-                inputmode="numeric"
-                maxlength="6"
-                placeholder="请输入6位邮箱验证码"
-                autocomplete="one-time-code"
-                @update:model-value="handleCodeInput"
+                  :model-value="form.code"
+                  class="min-w-0 flex-1"
+                  inputmode="numeric"
+                  maxlength="6"
+                  placeholder="请输入邮箱验证码"
+                  @update:model-value="handleCodeInput"
               />
               <el-button
-                :disabled="!canSendCode"
-                :loading="sendingCode"
-                @click="handleSendCode"
+                  :disabled="!canSendCode"
+                  :loading="sendingCode"
+                  @click="handleSendCode"
               >
                 {{ codeButtonText }}
               </el-button>
@@ -203,12 +177,12 @@ onMounted(() => loadStatus())
         </el-form>
 
         <template #footer>
-          <el-button :disabled="verifying" @click="dialogVisible = false">取消</el-button>
+          <el-button @click="dialogVisible = false">取消</el-button>
           <el-button
-            type="primary"
-            :disabled="!canVerify"
-            :loading="verifying"
-            @click="handleVerify"
+              type="primary"
+              :disabled="!canVerify"
+              :loading="verifying"
+              @click="handleVerify"
           >
             确认绑定
           </el-button>

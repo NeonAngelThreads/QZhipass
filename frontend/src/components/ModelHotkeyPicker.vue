@@ -62,8 +62,8 @@ import {
   modelKeyOf,
   modelLabelOf,
   type ModelResponse
-} from '@/api/models'
-import { useHotkeys, displayKey } from '@/composables/useHotkeys'
+} from '../api/models'
+import { useHotkeys, displayKey } from '../composables/useHotkeys'
 
 const props = defineProps<{
   /** 当前选中的 modelKey */
