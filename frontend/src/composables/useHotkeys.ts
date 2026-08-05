@@ -4,18 +4,18 @@
  * GET/POST/PUT/DELETE user/config/hotkey
  */
 
-import { ref, readonly, computed } from 'vue'
+import {computed, readonly, ref} from 'vue'
 import {
-  fetchHotkeyRegistry,
-  fetchFunctionRegistry,
-  getHotkeyBinding,
   bindOrUpdateHotkey,
-  resetHotkeyBinding,
-  FUNCTION_LABELS,
-  FUNCTION_DESCRIPTIONS,
   DEFAULT_FUNC_KEY,
+  displayKeyLabel,
+  fetchFunctionRegistry,
+  fetchHotkeyRegistry,
+  FUNCTION_DESCRIPTIONS,
+  FUNCTION_LABELS,
+  getHotkeyBinding,
   normalizeKeyLabel,
-  displayKeyLabel
+  resetHotkeyBinding
 } from '@/api/hotkey'
 
 export interface HotkeyRow {
@@ -71,10 +71,10 @@ export function eventMatchesKey(e: KeyboardEvent, binding: string): boolean {
     p => !['control', 'ctrl', 'alt', 'shift', 'meta', 'cmd'].includes(p)
   )[0]
 
-  if (!!e.ctrlKey !== needCtrl) return false
-  if (!!e.altKey !== needAlt) return false
-  if (!!e.shiftKey !== needShift) return false
-  if (!!e.metaKey !== needMeta) return false
+  if (e.ctrlKey !== needCtrl) return false
+  if (e.altKey !== needAlt) return false
+  if (e.shiftKey !== needShift) return false
+  if (e.metaKey !== needMeta) return false
 
   if (main === 'escape' || main === 'esc') return e.key === 'Escape'
   if (main?.startsWith('f') && main.length <= 3) return e.key.toLowerCase() === main
@@ -269,4 +269,3 @@ export function useHotkeys() {
 }
 
 // 重新导出，便于 ModelHotkeyPicker 等使用
-export { eventMatchesKey, normalizeKeyLabel }
