@@ -57,7 +57,7 @@ function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): Logi
       ? payload.conversation as Record<string, unknown>
       : {}
   const userId =
-    readIdentifier(payload.user_id) ||
+    readIdentifier(payload.id) ||
     readIdentifier(payload.userId) ||
     readIdentifier(response.user_id) ||
     readIdentifier(response.userId)
@@ -96,7 +96,7 @@ async function login(
   fallback: string
 ) {
   try {
-    const { data } = await http.post<PortalLoginResponse>('/v2/portal/login', {
+    const { data } = await http.post<PortalLoginResponse>('/v1/auth/portal/login', {
       loginType,
       credential
     })
@@ -123,7 +123,7 @@ export async function loginByPassword(mobile: string, password: string) {
 
 export async function sendSmsCode(mobile: string) {
   try {
-    const { data } = await http.post<PortalLoginResponse>('/v2/portal/send_code', {
+    const { data } = await http.post<PortalLoginResponse>('/v1/auth/portal/send_code', {
       phone: mobile
     })
 
@@ -151,7 +151,7 @@ export async function loginBySms(mobile: string, smsCode: string) {
 
 export async function checkLoginStatus(userId: string) {
   try {
-    const { data } = await http.post<LoginStatusResponse>('/v1/credential/checkstatus', {
+    const { data } = await http.post<LoginStatusResponse>('/v1/account/status', {
       User_id: userId
     })
 
