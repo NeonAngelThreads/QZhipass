@@ -6,6 +6,7 @@ import org.microsoft.qintelipass.services.redis.RedisService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.Duration;
 import java.util.concurrent.ThreadLocalRandom;
 
 /**
@@ -36,9 +37,9 @@ public class SmsServiceImpl implements ISmsService {
         String code = generateNumericCode(6);
 
         // 存入 Redis 并设置 5 分钟过期
-        redisService.setValue(SMS_CODE_PREFIX + phoneNumber, code, CODE_EXPIRE_SECONDS);
+        redisService.setValue(SMS_CODE_PREFIX + phoneNumber, code, Duration.ofSeconds(CODE_EXPIRE_SECONDS));
         // 设置 60 秒冷却
-        redisService.setValue(SMS_COOLDOWN_PREFIX + phoneNumber, "1", COOLDOWN_SECONDS);
+        redisService.setValue(SMS_COOLDOWN_PREFIX + phoneNumber, "1", Duration.ofSeconds(COOLDOWN_SECONDS));
 
         log.info("====================================");
         log.info("[SMS] 模拟发送验证码");
@@ -58,7 +59,7 @@ public class SmsServiceImpl implements ISmsService {
      */
     public int verifyCode(String phone, String code) {
         String key = SMS_CODE_PREFIX + phone;
-        if (!redisService.hasKey(key)) {
+        if (!redisService.getRedisTemplate().hasKey(key)) {
             return 2; // 验证码过期
         }
         String storedCode = (String) redisService.getValue(key);
@@ -75,14 +76,14 @@ public class SmsServiceImpl implements ISmsService {
      * 检查是否在冷却时间内
      */
     public boolean isInCooldown(String phone) {
-        return redisService.hasKey(SMS_COOLDOWN_PREFIX + phone);
+        return redisService.getRedisTemplate().hasKey(SMS_COOLDOWN_PREFIX + phone);
     }
 
     /**
      * 获取冷却剩余时间（秒），不在冷却中返回 0
      */
     public long getCooldownRemaining(String phone) {
-        return redisService.getExpire(SMS_COOLDOWN_PREFIX + phone);
+        return redisService.getRedisTemplate().getExpire(SMS_COOLDOWN_PREFIX + phone);
     }
 
     /**

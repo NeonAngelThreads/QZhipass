@@ -8,8 +8,7 @@
     <button
       type="button"
       class="model-trigger"
-      @click.stop="toggle"
-    >
+      @click.stop="toggle">
       {{ currentLabel }}
       <el-icon class="ml-1" :size="12"><ArrowDown /></el-icon>
     </button>
@@ -62,8 +61,8 @@ import {
   modelKeyOf,
   modelLabelOf,
   type ModelResponse
-} from '../api/models'
-import { useHotkeys, displayKey } from '../composables/useHotkeys'
+} from '@/api/models'
+import { useHotkeys, displayKey } from '@/composables/useHotkeys'
 
 const props = defineProps<{
   /** 当前选中的 modelKey */

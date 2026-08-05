@@ -1,4 +1,5 @@
 package org.microsoft.qintelipass.services.redis;
+import lombok.Getter;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
@@ -9,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 @Service
 public class RedisService {
+    @Getter
     private final RedisTemplate<String, Object> redisTemplate;
 
     public RedisService(RedisTemplate<String, Object> redisTemplate) {

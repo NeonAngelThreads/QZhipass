@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.response.EmailBindingSendCodeResponse;
 import org.microsoft.qintelipass.dtos.response.EmailBindingStatusResponse;
+import org.microsoft.qintelipass.dtos.response.EmailBindingVerifyResponse;
 import org.microsoft.qintelipass.entity.User;
 import org.microsoft.qintelipass.exceptions.BadRequestException;
 import org.microsoft.qintelipass.exceptions.EmailBindingCacheException;

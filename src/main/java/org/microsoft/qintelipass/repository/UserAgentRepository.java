@@ -22,4 +22,6 @@ public interface UserAgentRepository extends JpaRepository<UserAgent, Long> {
     @Modifying(clearAutomatically = true, flushAutomatically = true)
     @Query("delete from UserAgent agent where agent.id = :agentId and agent.userId = :userId")
     int hardDeleteByIdAndUserId(@Param("agentId") Long agentId, @Param("userId") Long userId);
+
+    List<UserAgent> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, String statusActive);
 }

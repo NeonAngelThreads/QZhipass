@@ -60,7 +60,7 @@ public class EmailBindingController {
 
     private Long requireUserId(HttpServletRequest request) {
         try {
-            return currentUserService.(request);
+            return SecurityUtil.getCurrentUserId();
         } catch (UnauthorizedException exception) {
             throw new UnauthorizedException("请先登录");
         }

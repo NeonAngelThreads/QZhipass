@@ -1,10 +1,15 @@
 package org.microsoft.qintelipass;
 
 import org.microsoft.qintelipass.dtos.response.ApiResponse;
+import org.microsoft.qintelipass.dtos.response.EmailBindingCooldownData;
 import org.microsoft.qintelipass.exceptions.ApiException;
+import org.microsoft.qintelipass.exceptions.ConflictException;
+import org.microsoft.qintelipass.exceptions.EmailBindingCooldownException;
 import org.microsoft.qintelipass.exceptions.UserNotFoundException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
