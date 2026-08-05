@@ -56,6 +56,3 @@ export function isLoggedIn() {
   return Boolean(readLoginInfo())
 }
 
-export function isAdmin() {
-  return readLoginInfo()?.role === 'ADMIN'
-}

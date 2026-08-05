@@ -28,6 +28,7 @@ public class UserAgent {
     public static final String STATUS_DELETED = "DELETED";
 
     @Id
+    @Builder.Default
     @Column(name = "id", updatable = false, nullable = false, unique = true)
     private Long id = Snowflake.nextId();
 
@@ -40,7 +41,7 @@ public class UserAgent {
 
     @Column(name = "prompt", nullable = false, columnDefinition = "TEXT")
     private String prompt;
-
+    @Builder.Default
     @Column(name = "status", nullable = false, length = 16)
     private String status = STATUS_ACTIVE;
 

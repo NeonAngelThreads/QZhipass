@@ -42,10 +42,10 @@ export async function deleteAgent(agentId: string) {
 }
 
 export async function invokeAgentStream(
-  agentId: string,
-  payload: InvokeAgentPayload,
-  onEvent: (event: AgentStreamEvent) => void,
-  signal?: AbortSignal,
+    agentId: string,
+    payload: InvokeAgentPayload,
+    onEvent: (event: AgentStreamEvent) => void,
+    signal?: AbortSignal,
 ) {
   const baseUrl = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
   const accessToken = readLoginInfo()?.accessToken
@@ -77,10 +77,10 @@ export async function invokeAgentStream(
 
     for (const block of blocks) {
       const data = block
-        .split('\n')
-        .filter(line => line.startsWith('data:'))
-        .map(line => line.slice(5).trimStart())
-        .join('\n')
+          .split('\n')
+          .filter(line => line.startsWith('data:'))
+          .map(line => line.slice(5).trimStart())
+          .join('\n')
       if (!data) continue
 
       const event = JSON.parse(data) as AgentStreamEvent

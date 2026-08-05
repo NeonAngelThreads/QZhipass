@@ -27,6 +27,7 @@ public class PublicAgentTemplate {
     public static final String STATUS_DISABLED = "DISABLED";
 
     @Id
+    @Builder.Default
     @Column(name = "id", updatable = false, nullable = false, unique = true)
     private Long id;
 
@@ -40,6 +41,7 @@ public class PublicAgentTemplate {
     private String prompt;
 
     @Column(name = "status", nullable = false, length = 16)
+    @Builder.Default
     private String status = STATUS_ACTIVE;
 
     @CreationTimestamp

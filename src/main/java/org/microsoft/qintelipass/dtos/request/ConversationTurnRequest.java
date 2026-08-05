@@ -17,4 +17,6 @@ public class ConversationTurnRequest {
 
     @Size(max = 64)
     private String requestId;
+    private Long agentId;
+
 }

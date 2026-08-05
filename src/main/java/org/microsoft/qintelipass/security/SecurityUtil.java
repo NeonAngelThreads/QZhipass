@@ -1,16 +1,16 @@
 package org.microsoft.qintelipass.security;
 
 import lombok.extern.slf4j.Slf4j;
+import org.microsoft.qintelipass.repository.UserRepository;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
 public class SecurityUtil {
-    private SecurityUtil() {
-    }
     public static AuthenticatedUser getCurrentAuthenticatedUser() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication == null || !(authentication.getPrincipal() instanceof AuthenticatedUser)) {
@@ -24,6 +24,7 @@ public class SecurityUtil {
         AuthenticatedUser user = getCurrentAuthenticatedUser();
         return user != null ? user.getUserId() : null;
     }
+
 
     public static UserDetails getCurrentUserDetails() {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

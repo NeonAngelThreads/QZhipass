@@ -1,11 +1,15 @@
 package org.microsoft.qintelipass.dtos.response;
 
 import org.microsoft.qintelipass.entity.Conversation;
+import tools.jackson.databind.annotation.JsonSerialize;
+import tools.jackson.databind.ser.std.ToStringSerializer;
 
 import java.time.LocalDateTime;
 
 public record ConversationResponse(
+        @JsonSerialize(using = ToStringSerializer.class)
         Long id,
+        @JsonSerialize(using = ToStringSerializer.class)
         Long conversationId,
         String title,
         String modelKey,

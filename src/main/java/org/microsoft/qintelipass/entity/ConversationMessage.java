@@ -44,6 +44,9 @@ public class ConversationMessage {
     @Column(name = "model_key", length = 100)
     private String modelKey;
 
+    @Column(name = "agent_id")
+    private Long agentId;
+
     @Column(name = "token_count", nullable = false)
     private int tokenCount;
 

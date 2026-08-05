@@ -1,9 +1,11 @@
 package org.microsoft.qintelipass.services.redis;
-
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
+import java.util.Collections;
+import java.util.concurrent.TimeUnit;
 
 @Service
 public class RedisService {
@@ -24,29 +26,27 @@ public class RedisService {
     public Object getValue(String key) {
         return redisTemplate.opsForValue().get(key);
     }
+
+    public boolean setIfAbsent(String key, String value, Duration timeout) {
+        return Boolean.TRUE.equals(redisTemplate.opsForValue().setIfAbsent(key, value, timeout));
+    }
+
+    public long getExpireSeconds(String key) {
+        Long seconds = redisTemplate.getExpire(key, TimeUnit.SECONDS);
+        return seconds == null ? -2L : seconds;
+    }
+
     public void deleteValue(String key) {
         redisTemplate.delete(key);
     }
 
-    /**
-     * 检查 key 是否存在
-     */
-    public boolean hasKey(String key) {
-        return Boolean.TRUE.equals(redisTemplate.hasKey(key));
-    }
-
-    /**
-     * 获取 key 的剩余过期时间（秒），若 key 不存在或未设置过期时间返回 0
-     */
-    public long getExpire(String key) {
-        Long expire = redisTemplate.getExpire(key);
-        return expire != null && expire > 0 ? expire : 0;
-    }
-
-    /**
-     * 设置 key 的过期时间
-     */
-    public void setValue(String key, String value, long seconds) {
-        redisTemplate.opsForValue().set(key, value, Duration.ofSeconds(seconds));
+    public boolean deleteIfValueMatches(String key, String expectedValue) {
+        DefaultRedisScript<Long> script = new DefaultRedisScript<>(
+                "if redis.call('get', KEYS[1]) == ARGV[1] then "
+                        + "return redis.call('del', KEYS[1]) else return 0 end",
+                Long.class
+        );
+        Long deleted = redisTemplate.execute(script, Collections.singletonList(key), expectedValue);
+        return Long.valueOf(1L).equals(deleted);
     }
 }
