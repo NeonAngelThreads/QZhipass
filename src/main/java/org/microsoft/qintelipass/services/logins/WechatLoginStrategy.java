@@ -33,7 +33,7 @@ public class WechatLoginStrategy extends BaseLoginStrategy {
 
     @Override
     protected String extractIdentityKey(Map<String, Object> params) {
-        return (String) params.get("wechat_openid");
+        return String.valueOf(params.get("wechat_openid"));
     }
 
     @Override

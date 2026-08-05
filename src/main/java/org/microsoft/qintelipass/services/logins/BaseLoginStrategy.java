@@ -18,7 +18,7 @@ import java.util.Map;
 public abstract class BaseLoginStrategy implements ILoginStrategy {
 
     private static final int DEFAULT_MAX_ATTEMPTS = 5;
-    private static final Duration DEFAULT_LOCK_DURATION = Duration.ofMinutes(30);
+    private static final Duration DEFAULT_LOCK_DURATION = Duration.ofMinutes(10);
 
     @Autowired
     protected LoginAttemptService loginAttemptService;
@@ -42,8 +42,8 @@ public abstract class BaseLoginStrategy implements ILoginStrategy {
             return ResponseBody.<User>builder().success(true).payload(user).build();
         } catch (RuntimeException ex) {
             if (needAttemptTracking() && identityKey != null && isAuthFailure(ex)) {
-                int remaining = loginAttemptService.recordFailedAttempt(
-                        identityKey, getMaxAttempts(), getLockDuration());
+                int remaining = (loginAttemptService.recordFailedAttempt(
+                        identityKey, getMaxAttempts(), getLockDuration()));
                 if (remaining == 0) {
                     log.warn("Login attempt exhausted, identity={}, strategy={}", identityKey, getType());
                     throw new LoginFailedException(
@@ -99,7 +99,6 @@ public abstract class BaseLoginStrategy implements ILoginStrategy {
      */
     protected boolean isAuthFailure(RuntimeException ex) {
         return ex instanceof org.microsoft.qintelipass.exceptions.ApiException
-                || ex instanceof UserNotFoundException
                 || ex instanceof PasswordIncorrectException
                 || ex instanceof IllegalArgumentException;
     }

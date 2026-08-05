@@ -20,7 +20,7 @@ public class EmailPasswordStrategy extends BaseLoginStrategy {
 
     @Override
     protected String extractIdentityKey(Map<String, Object> params) {
-        return (String) params.get("email");
+        return String.valueOf(params.get("email"));
     }
 
     @Override

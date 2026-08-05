@@ -20,7 +20,7 @@ public class MobilePasswordStrategy extends BaseLoginStrategy {
 
     @Override
     protected String extractIdentityKey(Map<String, Object> params) {
-        String mobile = (String) params.get("mobile");
+        String mobile = String.valueOf(params.get("mobile"));
         if (mobile == null || mobile.isBlank()) {
             mobile = (String) params.get("phone");
         }

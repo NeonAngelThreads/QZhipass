@@ -54,9 +54,9 @@ public class MobileCodeLoginStrategy extends BaseLoginStrategy {
     @Override
     protected String extractIdentityKey(Map<String, Object> params) {
         if (params.containsKey("mobile")) {
-            return (String) params.get("mobile");
+            return String.valueOf(params.get("mobile"));
         }
-        return (String) params.get("phone");
+        return String.valueOf(params.get("phone"));
     }
 
     @Override

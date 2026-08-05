@@ -18,7 +18,7 @@ public class LoginAttemptService {
     private static final String LOCK_TOKEN_PREFIX = "login:token:";
 
     private static final int DEFAULT_MAX_ATTEMPTS = 5;
-    private static final Duration DEFAULT_LOCK_DURATION = Duration.ofMinutes(30);
+    private static final Duration DEFAULT_LOCK_DURATION = Duration.ofMinutes(10);
     private static final Duration ATTEMPT_WINDOW = Duration.ofHours(1);
     private static final Duration LOCK_HOLD_TTL = Duration.ofSeconds(10);
     private static final Duration LOCK_WAIT_TTL = Duration.ofSeconds(3);
@@ -38,7 +38,7 @@ public class LoginAttemptService {
         if (isLocked(identityKey)) {
             long remainingMinutes = getRemainingLockMinutes(identityKey);
             throw new org.microsoft.qintelipass.exceptions.LoginLockedException(
-                    "密码错误次数过多，账户已被锁定，请" + remainingMinutes + "分钟后再试",
+                    "密码错误次数过多，已锁定，请" + remainingMinutes + "分钟后再试,嘻嘻~",
                     remainingMinutes
             );
         }
@@ -67,6 +67,7 @@ public class LoginAttemptService {
             // 读取当前次数
             int current = 0;
             Object existing = redisTemplate.opsForValue().get(attemptKey);
+            redisTemplate.expire(attemptKey, DEFAULT_LOCK_DURATION);
             if (existing instanceof Number n) {
                 current = n.intValue();
             } else if (existing != null) {
@@ -77,10 +78,10 @@ public class LoginAttemptService {
             }
 
             current++;
-            redisTemplate.opsForValue().set(attemptKey, current, ATTEMPT_WINDOW);
+            redisTemplate.opsForValue().set(attemptKey, String.valueOf(current), ATTEMPT_WINDOW);
 
             if (current >= maxAttempts) {
-                redisTemplate.opsForValue().set(lockKey, current, lockDuration);
+                redisTemplate.opsForValue().set(lockKey, String.valueOf(current), lockDuration);
                 log.warn("Login attempt limit reached for identity: {}, locked for {} min",
                         identityKey, lockDuration.toMinutes());
                 return 0;
