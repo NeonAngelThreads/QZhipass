@@ -7,6 +7,7 @@ package org.microsoft.qintelipass.controllers;
 
 import org.microsoft.qintelipass.entity.CensorKeyword;
 import org.microsoft.qintelipass.services.censor.CensorService;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,11 +25,13 @@ public class CensorAdminController {
 
     @GetMapping({"/keywords"})
     public ResponseEntity<?> listKeywords() {
+        SecurityUtil.requireAdmin();
         return ResponseEntity.ok(this.censorService.listKeywords());
     }
 
     @PostMapping({"/keywords"})
     public ResponseEntity<?> addKeyword(@RequestBody Map<String, String> request) {
+        SecurityUtil.requireAdmin();
         String keyword = (String)request.get("keyword");
         CensorKeyword savedKeyword = this.censorService.addKeyword(keyword);
         return ResponseEntity.ok(savedKeyword);
@@ -36,6 +39,7 @@ public class CensorAdminController {
 
     @PatchMapping({"/keywords/{id}/enabled"})
     public ResponseEntity<?> setKeywordEnabled(@PathVariable Long id, @RequestBody Map<String, Boolean> request) {
+        SecurityUtil.requireAdmin();
         Boolean enabled = (Boolean)request.get("enabled");
         if (enabled == null) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "enabled is required"));
@@ -47,6 +51,7 @@ public class CensorAdminController {
 
     @GetMapping({"/records"})
     public ResponseEntity<?> listRecords() {
+        SecurityUtil.requireAdmin();
         return ResponseEntity.ok(this.censorService.listRecords());
     }
 }

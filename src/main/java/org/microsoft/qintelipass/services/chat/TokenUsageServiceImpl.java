@@ -1,26 +1,30 @@
 package org.microsoft.qintelipass.services.chat;
 
+import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
+import org.microsoft.qintelipass.ai.token.DashboardData;
+import org.microsoft.qintelipass.ai.token.DepartmentUsageData;
+import org.microsoft.qintelipass.ai.token.UserTokenStatus;
 import org.microsoft.qintelipass.dtos.TokenUsageRankDTO;
 import org.microsoft.qintelipass.dtos.UserTokenUsageDTO;
 import org.microsoft.qintelipass.entity.*;
-import org.microsoft.qintelipass.repository.DailyConfigRepository;
-import org.microsoft.qintelipass.repository.ModelsRepository;
-import org.microsoft.qintelipass.repository.TokenDailySummaryRepository;
-import org.microsoft.qintelipass.repository.TokenUsageLogRepository;
+import org.microsoft.qintelipass.enums.UserStatus;
+import org.microsoft.qintelipass.repository.*;
 import org.microsoft.qintelipass.services.TokenUsageService;
 import org.microsoft.qintelipass.services.UserService;
 import org.microsoft.qintelipass.util.ExpirationTimeHelper;
 import org.microsoft.qintelipass.util.Snowflake;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -30,29 +34,53 @@ public class TokenUsageServiceImpl implements TokenUsageService {
     private static final String LIMIT_KEY_PREFIX = "user:token:limit:";
     private static final String TOTAL_TOKENS_KEY = "models:daily:total:tokens";
     private static final String MODEL_TOTAL_KEY_PREFIX = "models:daily:total:";
-    private static long DEFAULT_TOKEN_LIMIT = 100000L;
+
+    private static final String GLOBAL_QUOTA_KEY = "global_token_quota";
+    private static final String USER_QUOTA_KEY_PREFIX = "user_quota_";
+    private static final long DEFAULT_QUOTA = 100_000L;
+
     private final RedisTemplate<String, String> redisTemplate;
     private final UserService userService;
     private final DailyConfigRepository dailyConfigRepository;
     private final TokenUsageLogRepository tokenUsageLogRepository;
     private final TokenDailySummaryRepository tokenDailySummaryRepository;
     private final ModelsRepository modelsRepository;
+    private final GlobalConfigRepository globalConfigRepository;
+    private final UserRepository userRepository;
+
     private final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyyMMdd");
 
-    @Autowired
     public TokenUsageServiceImpl(RedisTemplate<String, String> redisTemplate,
                                   UserService userService,
                                   DailyConfigRepository dailyConfigRepository,
                                   TokenUsageLogRepository tokenUsageLogRepository,
                                   TokenDailySummaryRepository tokenDailySummaryRepository,
-                                  ModelsRepository modelsRepository) {
+                                  ModelsRepository modelsRepository,
+                                  GlobalConfigRepository globalConfigRepository,
+                                  UserRepository userRepository) {
         this.redisTemplate = redisTemplate;
         this.userService = userService;
         this.dailyConfigRepository = dailyConfigRepository;
         this.tokenUsageLogRepository = tokenUsageLogRepository;
         this.tokenDailySummaryRepository = tokenDailySummaryRepository;
         this.modelsRepository = modelsRepository;
+        this.globalConfigRepository = globalConfigRepository;
+        this.userRepository = userRepository;
     }
+
+    @PostConstruct
+    public void initDefaultQuota() {
+        if (globalConfigRepository.findById(GLOBAL_QUOTA_KEY).isEmpty()) {
+            globalConfigRepository.save(new GlobalConfig(
+                    GLOBAL_QUOTA_KEY,
+                    String.valueOf(DEFAULT_QUOTA)
+            ));
+        }
+    }
+
+    // ======================================================================
+    // 原有接口（我的版本）
+    // ======================================================================
 
     @Override
     @Transactional
@@ -81,6 +109,9 @@ public class TokenUsageServiceImpl implements TokenUsageService {
 
         redisTemplate.opsForValue().increment(modelTotalKey, tokensUsed);
         redisTemplate.expireAt(modelTotalKey, ExpirationTimeHelper.getNextDayTime());
+
+        redisTemplate.opsForValue().increment(TOTAL_TOKENS_KEY, tokensUsed);
+        redisTemplate.expireAt(TOTAL_TOKENS_KEY, ExpirationTimeHelper.getNextDayTime());
 
         TokenUsageLog logEntry = TokenUsageLog.builder()
                 .id(Snowflake.nextId())
@@ -111,7 +142,6 @@ public class TokenUsageServiceImpl implements TokenUsageService {
     @Override
     public UserTokenUsageDTO getUserTokenUsage(User user) {
         String userName = user.getName();
-        String department = user.getDepartment();
 
         long currentUsage = getCurrentTokenUsage(user.getId());
         long limit = getUserTokenLimit(user);
@@ -172,12 +202,20 @@ public class TokenUsageServiceImpl implements TokenUsageService {
             }
         }
 
+        Optional<GlobalConfig> userQuota = globalConfigRepository.findById(USER_QUOTA_KEY_PREFIX + userId);
+        if (userQuota.isPresent()) {
+            try {
+                return Long.parseLong(userQuota.get().getValue());
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
         Optional<DailyConfig> config = dailyConfigRepository.findByUser_Id(userId);
         if (config.isPresent()) {
             return config.get().getDailyLimit();
         }
 
-        return DEFAULT_TOKEN_LIMIT;
+        return getGlobalQuota();
     }
 
     @Override
@@ -188,6 +226,11 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         Long userId = user.getId();
         String limitKey = LIMIT_KEY_PREFIX + userId;
         redisTemplate.opsForValue().set(limitKey, String.valueOf(limit));
+
+        globalConfigRepository.save(new GlobalConfig(
+                USER_QUOTA_KEY_PREFIX + userId,
+                String.valueOf(limit)
+        ));
 
         Optional<DailyConfig> existingConfig = dailyConfigRepository.findByUser_Id(userId);
         if (existingConfig.isPresent()) {
@@ -247,12 +290,12 @@ public class TokenUsageServiceImpl implements TokenUsageService {
 
     @Override
     public Long getDailyTokenLimit() {
-        return DEFAULT_TOKEN_LIMIT;
+        return getGlobalQuota();
     }
 
     @Override
     public void setDailyTokenLimit(Long value) {
-        DEFAULT_TOKEN_LIMIT = value;
+        setGlobalQuota(value);
     }
 
     @Override
@@ -318,6 +361,37 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         return result;
     }
 
+    @Transactional
+    @Override
+    public void aggregateDailyData() {
+        LocalDate today = LocalDate.now();
+        List<Object[]> modelData = tokenUsageLogRepository.sumByModelIdForDate(today);
+
+        for (Object[] row : modelData) {
+            Long modelId = (Long) row[0];
+            Long totalTokens = (Long) row[1];
+
+            Optional<TokenDailySummary> existingSummary = tokenDailySummaryRepository.findByUsageDateAndModel_Id(today, modelId);
+            Optional<Models> model = modelsRepository.findById(modelId);
+            if (existingSummary.isPresent()) {
+                TokenDailySummary summary = existingSummary.get();
+                summary.setTotalTokens(totalTokens);
+                tokenDailySummaryRepository.save(summary);
+            } else if (model.isPresent()) {
+                TokenDailySummary summary = TokenDailySummary.builder()
+                        .usageDate(today)
+                        .model(model.get())
+                        .totalTokens(totalTokens)
+                        .build();
+                tokenDailySummaryRepository.save(summary);
+            } else {
+                log.error("Model was notfound by id: {}", modelId);
+            }
+        }
+
+        log.info("Daily token usage aggregated for date: {}", today);
+    }
+
     @Override
     public Long getActiveUserCount() {
         LocalDate today = LocalDate.now();
@@ -380,35 +454,393 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         return result;
     }
 
-    @Transactional
-    public void aggregateDailyData() {
-        LocalDate today = LocalDate.now();
-        List<Object[]> modelData = tokenUsageLogRepository.sumByModelIdForDate(today);
+    // ======================================================================
+    // 兼容对方版本：配额管理
+    // ======================================================================
 
-        for (Object[] row : modelData) {
-            Long modelId = (Long) row[0];
-            Long totalTokens = (Long) row[1];
+    @Override
+    public long getGlobalQuota() {
+        return globalConfigRepository.findById(GLOBAL_QUOTA_KEY)
+                .map(GlobalConfig::getValue)
+                .map(value -> parseQuota(value, DEFAULT_QUOTA))
+                .orElse(DEFAULT_QUOTA);
+    }
 
-            Optional<TokenDailySummary> existingSummary = tokenDailySummaryRepository.findByUsageDateAndModel_Id(today, modelId);
-            Optional<Models> model = modelsRepository.findById(modelId);
-            if (existingSummary.isPresent()) {
-                TokenDailySummary summary = existingSummary.get();
-                summary.setTotalTokens(totalTokens);
-                tokenDailySummaryRepository.save(summary);
-            } else if (model.isPresent()) {
-                TokenDailySummary summary = TokenDailySummary.builder()
-                        .usageDate(today)
-                        .model(model.get())
-                        .totalTokens(totalTokens)
-                        .build();
-                tokenDailySummaryRepository.save(summary);
-            } else {
-                log.error("Model was notfound by id: {}", modelId);
+    @Override
+    public long getUserQuota(Long userId) {
+        if (userId == null) {
+            return getGlobalQuota();
+        }
+
+        Optional<GlobalConfig> gc = globalConfigRepository.findById(USER_QUOTA_KEY_PREFIX + userId);
+        if (gc.isPresent()) {
+            try {
+                return Long.parseLong(gc.get().getValue());
+            } catch (NumberFormatException ignored) {
             }
         }
 
-        log.info("Daily token usage aggregated for date: {}", today);
+        String cacheLimit = redisTemplate.opsForValue().get(LIMIT_KEY_PREFIX + userId);
+        if (cacheLimit != null) {
+            try {
+                return Long.parseLong(cacheLimit);
+            } catch (NumberFormatException ignored) {
+            }
+        }
+
+        Optional<DailyConfig> config = dailyConfigRepository.findByUser_Id(userId);
+        if (config.isPresent()) {
+            return config.get().getDailyLimit();
+        }
+
+        return getGlobalQuota();
     }
+
+    @Override
+    public void setGlobalQuota(long quota) {
+        validateQuota(quota);
+        globalConfigRepository.save(new GlobalConfig(
+                GLOBAL_QUOTA_KEY,
+                String.valueOf(quota)
+        ));
+    }
+
+    @Override
+    public void setGlobalQuotaWithCount(long quota) {
+        setGlobalQuota(quota);
+    }
+
+    @Override
+    public void setUserQuota(Long userId, long quota) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User id is required");
+        }
+        validateQuota(quota);
+
+        globalConfigRepository.save(new GlobalConfig(
+                USER_QUOTA_KEY_PREFIX + userId,
+                String.valueOf(quota)
+        ));
+
+        redisTemplate.opsForValue().set(LIMIT_KEY_PREFIX + userId, String.valueOf(quota));
+
+        Optional<DailyConfig> existingConfig = dailyConfigRepository.findByUser_Id(userId);
+        if (existingConfig.isPresent()) {
+            DailyConfig c = existingConfig.get();
+            c.setDailyLimit(quota);
+            dailyConfigRepository.save(c);
+        } else {
+            User user = userRepository.findById(userId).orElse(null);
+            if (user != null) {
+                DailyConfig config = DailyConfig.builder()
+                        .id(Snowflake.nextId())
+                        .user(user)
+                        .dailyLimit(quota)
+                        .build();
+                dailyConfigRepository.save(config);
+            }
+        }
+    }
+
+    // ======================================================================
+    // 兼容对方版本：用量记录
+    // ======================================================================
+
+    @Override
+    @Transactional
+    public void recordUsage(Long userId, String model, long promptTokens, long completionTokens) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User id is required");
+        }
+        if (model == null || model.isBlank()) {
+            throw new IllegalArgumentException("Model is required");
+        }
+        if (promptTokens < 0 || completionTokens < 0) {
+            throw new IllegalArgumentException("Token usage must not be negative");
+        }
+
+        long totalTokens = promptTokens + completionTokens;
+        LocalDate today = LocalDate.now();
+        String todayStr = getTodayDateString();
+        String usageKey = getUsageKey(todayStr, userId);
+        String rankKey = getRankKey(todayStr);
+        Long currentUsage = redisTemplate.opsForValue().increment(usageKey, totalTokens);
+        if (currentUsage != null && currentUsage == totalTokens) {
+            redisTemplate.expireAt(usageKey, ExpirationTimeHelper.getNextDayTime());
+        }
+        redisTemplate.opsForZSet().incrementScore(rankKey, String.valueOf(userId), totalTokens);
+        redisTemplate.opsForValue().increment(TOTAL_TOKENS_KEY, totalTokens);
+        redisTemplate.expireAt(TOTAL_TOKENS_KEY, ExpirationTimeHelper.getNextDayTime());
+
+        Optional<Models> modelEntity = modelsRepository.findByModelName(model);
+        User user = userRepository.findById(userId).orElse(null);
+        if (modelEntity.isPresent() && user != null && totalTokens > 0) {
+            TokenUsageLog logEntry = TokenUsageLog.builder()
+                    .id(Snowflake.nextId())
+                    .user(user)
+                    .model(modelEntity.get())
+                    .tokensUsed((int) Math.min(totalTokens, Integer.MAX_VALUE))
+                    .usageDate(today)
+                    .build();
+            tokenUsageLogRepository.save(logEntry);
+        }
+    }
+
+    // ======================================================================
+    // 兼容对方版本：状态查询
+    // ======================================================================
+
+    @Override
+    public UserTokenStatus getDailyStatus(Long userId) {
+        if (userId == null) {
+            throw new IllegalArgumentException("User id is required");
+        }
+
+        long quota = getUserQuota(userId);
+        long used = sumTokensForUserOnDate(userId, LocalDate.now());
+
+        User user = userRepository.findById(userId).orElse(null);
+        String department = user == null ? null : user.getDepartment();
+        String userName = user == null ? null : user.getName();
+
+        return new UserTokenStatus(
+                userId,
+                quota,
+                used,
+                Math.max(0, quota - used),
+                used >= quota,
+                department,
+                userName
+        );
+    }
+
+    @Override
+    public boolean checkQuota(Long userId, long estimatedTokens) {
+        if (estimatedTokens < 0) {
+            throw new IllegalArgumentException("Estimated tokens must not be negative");
+        }
+        UserTokenStatus status = getDailyStatus(userId);
+        return status.used() + estimatedTokens <= status.quota();
+    }
+
+    // ======================================================================
+    // 兼容对方版本：看板和统计
+    // ======================================================================
+
+    @Override
+    public DashboardData getDashboard() {
+        long quota = getGlobalQuota();
+        LocalDate today = LocalDate.now();
+
+        Map<Long, Long> todayUsageByUser = sumUsageByUserFromLogs(
+                tokenUsageLogRepository.findByUsageDate(today)
+        );
+        long overQuotaUsers = todayUsageByUser.entrySet().stream()
+                .filter(entry -> entry.getValue() >= getUserQuota(entry.getKey()))
+                .count();
+
+        LocalDate start = today.minusDays(6);
+        List<String> dates = new ArrayList<>();
+        for (int daysAgo = 6; daysAgo >= 0; daysAgo--) {
+            dates.add(today.minusDays(daysAgo).toString());
+        }
+
+        Map<String, List<Long>> models = new LinkedHashMap<>();
+        List<Long> totals = new ArrayList<>(Collections.nCopies(7, 0L));
+        for (TokenUsageLogRepository.ModelDailyTotal dailyTotal
+                : tokenUsageLogRepository.findDailyTotalsSince(start)) {
+            List<Long> modelTotals = models.computeIfAbsent(
+                    dailyTotal.getModel(),
+                    ignored -> new ArrayList<>(Collections.nCopies(7, 0L))
+            );
+            int index = (int) ChronoUnit.DAYS.between(start, dailyTotal.getUsageDate());
+            if (index >= 0 && index < 7) {
+                long value = dailyTotal.getTotal() == null ? 0L : dailyTotal.getTotal();
+                modelTotals.set(index, value);
+                totals.set(index, totals.get(index) + value);
+            }
+        }
+
+        return new DashboardData(
+                todayUsageByUser.size(),
+                overQuotaUsers,
+                quota,
+                dates,
+                models,
+                totals
+        );
+    }
+
+    @Override
+    public DepartmentUsageData getDepartmentUsage() {
+        LocalDate today = LocalDate.now();
+        Map<Long, Long> usageByUser = sumUsageByUserFromLogs(
+                tokenUsageLogRepository.findByUsageDate(today)
+        );
+
+        Map<String, long[]> departmentAggregates = new LinkedHashMap<>();
+        List<DepartmentUsageData.UserUsageRow> userRows = new ArrayList<>();
+
+        for (User user : getActiveUsers()) {
+            long used = usageByUser.getOrDefault(user.getId(), 0L);
+            long quota = getUserQuota(user.getId());
+            boolean overQuota = used >= quota;
+            String department = normalizeDepartment(user.getDepartment());
+
+            userRows.add(new DepartmentUsageData.UserUsageRow(
+                    user.getId(),
+                    user.getName(),
+                    department,
+                    used,
+                    quota,
+                    overQuota
+            ));
+
+            long[] aggregate = departmentAggregates.computeIfAbsent(
+                    department,
+                    ignored -> new long[3]
+            );
+            aggregate[0]++;
+            aggregate[1] += used;
+            if (overQuota) {
+                aggregate[2]++;
+            }
+        }
+
+        List<DepartmentUsageData.DepartmentRow> departmentRows =
+                departmentAggregates.entrySet().stream()
+                        .map(entry -> new DepartmentUsageData.DepartmentRow(
+                                entry.getKey(),
+                                entry.getValue()[0],
+                                entry.getValue()[1],
+                                entry.getValue()[2]
+                        ))
+                        .sorted(Comparator.comparing(DepartmentUsageData.DepartmentRow::department))
+                        .toList();
+
+        userRows.sort(
+                Comparator.comparing(DepartmentUsageData.UserUsageRow::department)
+                        .thenComparing(
+                                DepartmentUsageData.UserUsageRow::totalTokens,
+                                Comparator.reverseOrder()
+                        )
+        );
+
+        return new DepartmentUsageData(
+                today.toString(),
+                departmentRows,
+                userRows
+        );
+    }
+
+    @Override
+    public Map<String, Object> getUserWeeklyTrend(Long userId) {
+        LocalDate today = LocalDate.now();
+        LocalDate start = today.minusDays(6);
+
+        Map<LocalDate, Long> usageByDate = tokenUsageLogRepository
+                .findByUser_IdAndUsageDateBetween(userId, start, today)
+                .stream()
+                .collect(Collectors.groupingBy(
+                        TokenUsageLog::getUsageDate,
+                        Collectors.summingLong(TokenUsageLog::getTokensUsed)
+                ));
+
+        String[] weekdays = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+        List<String> labels = new ArrayList<>();
+        List<Long> data = new ArrayList<>();
+        long total = 0;
+        int activeDays = 0;
+
+        for (LocalDate date = start; !date.isAfter(today); date = date.plusDays(1)) {
+            labels.add(String.format(
+                    "%02d-%02d %s",
+                    date.getMonthValue(),
+                    date.getDayOfMonth(),
+                    weekdays[date.getDayOfWeek().getValue() % 7]
+            ));
+
+            long value = usageByDate.getOrDefault(date, 0L);
+            data.add(value);
+            total += value;
+            if (value > 0) {
+                activeDays++;
+            }
+        }
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("labels", labels);
+        result.put("data", data);
+        result.put("monthlyTotal", total);
+        result.put("averageDaily", activeDays == 0 ? 0 : total / activeDays);
+        result.put("activeDays", activeDays);
+        return result;
+    }
+
+    @Override
+    public List<Map<String, Object>> getRecentConversations(Long userId) {
+        LocalDate today = LocalDate.now();
+        return tokenUsageLogRepository
+                .findByUser_IdAndUsageDateBetween(userId, today.minusDays(3), today)
+                .stream()
+                .sorted(Comparator.comparing(TokenUsageLog::getCreatedAt, Comparator.reverseOrder()))
+                .limit(20)
+                .map(this::toConversationRow)
+                .toList();
+    }
+
+    @Override
+    public Map<String, Object> getDashboardForFrontend() {
+        LocalDate today = LocalDate.now();
+        long globalQuota = getGlobalQuota();
+        Map<Long, Long> usageByUser = sumUsageByUserFromLogs(
+                tokenUsageLogRepository.findByUsageDate(today)
+        );
+
+        long overQuotaUsers = usageByUser.entrySet().stream()
+                .filter(entry -> entry.getValue() >= getUserQuota(entry.getKey()))
+                .count();
+        long todayTotal = usageByUser.values().stream()
+                .mapToLong(Long::longValue)
+                .sum();
+
+        Map<String, Object> result = new LinkedHashMap<>();
+        result.put("activeUsers", usageByUser.size());
+        result.put("overQuotaUsers", overQuotaUsers);
+        result.put("todayTotalConsumption", todayTotal);
+        result.put("chartData", buildFrontendChart(today));
+        result.put("employees", buildEmployeeListForFrontend(usageByUser));
+        result.put("globalLimit", globalQuota);
+        return result;
+    }
+
+    @Override
+    public long countActiveUsers() {
+        return getActiveUsers().size();
+    }
+
+    @Override
+    public List<TokenUsageLog> findByUserIdAndUsageDateBetween(
+            Long userId,
+            LocalDate start,
+            LocalDate end
+    ) {
+        return tokenUsageLogRepository.findByUser_IdAndUsageDateBetween(userId, start, end);
+    }
+
+    // ======================================================================
+    // 定时清理
+    // ======================================================================
+
+    @Scheduled(cron = "0 0 0 * * *")
+    @Transactional
+    public void dailyReset() {
+        tokenUsageLogRepository.deleteByUsageDateBefore(LocalDate.now().minusDays(30));
+    }
+
+    // ======================================================================
+    // 私有方法
+    // ======================================================================
 
     private long getCurrentTokenUsage(Long userId) {
         String today = getTodayDateString();
@@ -416,7 +848,7 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         String usageStr = redisTemplate.opsForValue().get(usageKey);
 
         if (usageStr == null) {
-            return 0L;
+            return sumTokensForUserOnDate(userId, LocalDate.now());
         }
 
         try {
@@ -425,6 +857,14 @@ public class TokenUsageServiceImpl implements TokenUsageService {
             log.error("Invalid token usage format for user: {}", userId);
             return 0L;
         }
+    }
+
+    private long sumTokensForUserOnDate(Long userId, LocalDate date) {
+        return tokenUsageLogRepository
+                .findByUser_IdAndUsageDate(userId, date)
+                .stream()
+                .mapToLong(TokenUsageLog::getTokensUsed)
+                .sum();
     }
 
     private String getTodayDateString() {
@@ -447,5 +887,115 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         return modelsRepository.findById(modelId)
                 .map(Models::getModelName)
                 .orElse("Model-" + modelId);
+    }
+
+    private Map<Long, Long> sumUsageByUserFromLogs(List<TokenUsageLog> logs) {
+        return logs.stream()
+                .collect(Collectors.groupingBy(
+                        log -> log.getUser().getId(),
+                        Collectors.summingLong(TokenUsageLog::getTokensUsed)
+                ));
+    }
+
+    private Map<String, Object> buildFrontendChart(LocalDate today) {
+        LocalDate start = today.minusDays(6);
+        String[] weekdays = {"周日", "周一", "周二", "周三", "周四", "周五", "周六"};
+        List<String> labels = new ArrayList<>();
+        for (int daysAgo = 6; daysAgo >= 0; daysAgo--) {
+            LocalDate date = today.minusDays(daysAgo);
+            labels.add(String.format(
+                    "%02d-%02d %s",
+                    date.getMonthValue(),
+                    date.getDayOfMonth(),
+                    weekdays[date.getDayOfWeek().getValue() % 7]
+            ));
+        }
+
+        Map<String, Map<LocalDate, Long>> usageByModelAndDate = new LinkedHashMap<>();
+        for (TokenUsageLogRepository.ModelDailyTotal total
+                : tokenUsageLogRepository.findDailyTotalsSince(start)) {
+            usageByModelAndDate
+                    .computeIfAbsent(total.getModel(), ignored -> new LinkedHashMap<>())
+                    .put(total.getUsageDate(), total.getTotal() == null ? 0L : total.getTotal());
+        }
+
+        List<String> modelNames = new ArrayList<>(List.of("千问", "DeepSeek", "Llama-3.1"));
+        usageByModelAndDate.keySet().stream()
+                .filter(model -> !modelNames.contains(model))
+                .sorted()
+                .forEach(modelNames::add);
+
+        List<Map<String, Object>> datasets = new ArrayList<>();
+        for (String model : modelNames) {
+            Map<LocalDate, Long> usageByDate = usageByModelAndDate.getOrDefault(model, Map.of());
+            List<Long> data = new ArrayList<>();
+            for (int daysAgo = 6; daysAgo >= 0; daysAgo--) {
+                data.add(usageByDate.getOrDefault(today.minusDays(daysAgo), 0L));
+            }
+
+            Map<String, Object> dataset = new LinkedHashMap<>();
+            dataset.put("label", model);
+            dataset.put("data", data);
+            datasets.add(dataset);
+        }
+
+        Map<String, Object> chartData = new LinkedHashMap<>();
+        chartData.put("labels", labels);
+        chartData.put("datasets", datasets);
+        return chartData;
+    }
+
+    private List<Map<String, Object>> buildEmployeeListForFrontend(Map<Long, Long> usageByUser) {
+        return getActiveUsers().stream()
+                .sorted(Comparator.comparing(User::getId).reversed())
+                .map(user -> {
+                    long used = usageByUser.getOrDefault(user.getId(), 0L);
+                    long quota = getUserQuota(user.getId());
+
+                    Map<String, Object> employee = new LinkedHashMap<>();
+                    employee.put("id", String.valueOf(user.getId()));
+                    employee.put("name", user.getName());
+                    employee.put("department", normalizeDepartment(user.getDepartment()));
+                    employee.put("totalTokens", used);
+                    employee.put("quota", quota);
+                    employee.put("overQuota", used >= quota);
+                    return employee;
+                })
+                .toList();
+    }
+
+    private Map<String, Object> toConversationRow(TokenUsageLog usageLog) {
+        Map<String, Object> row = new LinkedHashMap<>();
+        row.put("id", usageLog.getId());
+        row.put("modelName", usageLog.getModel() != null ? usageLog.getModel().getModelName() : "Unknown");
+        row.put("tokensUsed", usageLog.getTokensUsed());
+        row.put("usageDate", usageLog.getUsageDate().toString());
+        row.put("content", "对话记录");
+        row.put("createdAt", usageLog.getCreatedAt() != null ? usageLog.getCreatedAt().toString() : usageLog.getUsageDate().toString());
+        return row;
+    }
+
+    private List<User> getActiveUsers() {
+        return userRepository.findAll().stream()
+                .filter(user -> user.getStatus() != UserStatus.CANCELLED)
+                .toList();
+    }
+
+    private String normalizeDepartment(String department) {
+        return department == null || department.isBlank() ? "未分配" : department;
+    }
+
+    private long parseQuota(String value, long defaultValue) {
+        try {
+            return Long.parseLong(value);
+        } catch (NumberFormatException ignored) {
+            return defaultValue;
+        }
+    }
+
+    private void validateQuota(long quota) {
+        if (quota < 0) {
+            throw new IllegalArgumentException("Token quota must not be negative");
+        }
     }
 }

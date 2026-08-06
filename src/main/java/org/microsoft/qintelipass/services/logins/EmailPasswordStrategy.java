@@ -2,6 +2,7 @@ package org.microsoft.qintelipass.services.logins;
 
 import org.microsoft.qintelipass.ILoginable;
 import org.microsoft.qintelipass.entity.User;
+import org.microsoft.qintelipass.services.BaseLoginStrategy;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 

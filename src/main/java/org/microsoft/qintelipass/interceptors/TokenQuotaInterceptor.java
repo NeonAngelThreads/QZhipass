@@ -4,7 +4,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.microsoft.qintelipass.ai.token.UserTokenStatus;
-import org.microsoft.qintelipass.services.agent.TokenService;
+import org.microsoft.qintelipass.services.TokenUsageService;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -21,9 +22,9 @@ public class TokenQuotaInterceptor implements HandlerInterceptor {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
-    private final TokenService tokenService;
+    private final TokenUsageService tokenService;
 
-    public TokenQuotaInterceptor(TokenService tokenService) {
+    public TokenQuotaInterceptor(TokenUsageService tokenService) {
         this.tokenService = tokenService;
     }
 
@@ -80,9 +81,9 @@ public class TokenQuotaInterceptor implements HandlerInterceptor {
     }
 
     private Long extractUserId(HttpServletRequest request) {
-        Long userId = parseUserId(request.getHeader("X-User-Id"));
-        if (userId != null) {
-            return userId;
+        var authUser = SecurityUtil.getCurrentAuthenticatedUser();
+        if (authUser != null) {
+            return authUser.getUserId();
         }
         return parseUserId(request.getParameter("userId"));
     }

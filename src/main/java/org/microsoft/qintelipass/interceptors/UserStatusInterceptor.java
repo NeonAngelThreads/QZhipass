@@ -26,7 +26,7 @@ public class UserStatusInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        Long userId = extractUserId(request);
+        Long userId = extractUserId();
         if (userId == null) {
             return true;
         }
@@ -56,24 +56,8 @@ public class UserStatusInterceptor implements HandlerInterceptor {
                 || path.contains("/error");
     }
 
-    private Long extractUserId(HttpServletRequest request) {
-        Long currentUserId = SecurityUtil.getCurrentUserId();
-        if (currentUserId != null) {
-            return currentUserId;
-        }
-
-        String userId = request.getHeader("X-User-Id");
-        if (userId == null || userId.isBlank()) {
-            userId = request.getParameter("currentUserId");
-        }
-        if (userId == null || userId.isBlank()) {
-            return null;
-        }
-
-        try {
-            return Long.parseLong(userId.trim());
-        } catch (NumberFormatException exception) {
-            return null;
-        }
+    private Long extractUserId() {
+        var authUser = SecurityUtil.getCurrentAuthenticatedUser();
+        return authUser != null ? authUser.getUserId() : null;
     }
 }

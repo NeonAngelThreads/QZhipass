@@ -38,6 +38,7 @@ public class UserController {
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "20") int size
     ) {
+        SecurityUtil.requireAdmin();
         List<User> allUsers = userService.getAllUsers();
         List<User> filteredUsers = allUsers;
         if (keyword != null && !keyword.trim().isEmpty()) {
@@ -63,6 +64,7 @@ public class UserController {
 
     @DeleteMapping("/users/{userId}")
     public ResponseEntity<?> cancelUser(@PathVariable Long userId) {
+        SecurityUtil.requireAdmin();
         if (userId == null) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid user ID"));
         }
@@ -84,6 +86,7 @@ public class UserController {
             @PathVariable Long userId,
             @RequestBody FreezeUserRequest request
     ) {
+        SecurityUtil.requireAdmin();
         try {
             UserFreezeLogDTO log = userFreezeService.freezeUser(
                     userId,
@@ -110,6 +113,7 @@ public class UserController {
             @PathVariable Long userId,
             @RequestBody FreezeUserRequest request
     ) {
+        SecurityUtil.requireAdmin();
         try {
             UserFreezeLogDTO log = userFreezeService.unfreezeUser(
                     userId,
@@ -132,6 +136,7 @@ public class UserController {
 
     @GetMapping("/users/{userId}/freeze-logs")
     public ResponseEntity<?> getFreezeLogs(@PathVariable Long userId) {
+        SecurityUtil.requireAdmin();
         return ResponseEntity.ok(Map.of(
                 "success",
                 true,
@@ -141,17 +146,8 @@ public class UserController {
     }
 
     @GetMapping("/user/profile")
-    public ResponseEntity<?> getUserProfile(@RequestHeader(value = "X-User-Id", required = false) String userIdStr) {
-        if (userIdStr == null || userIdStr.trim().isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Missing X-User-Id header"));
-        }
-
-        Long userId;
-        try {
-            userId = Long.parseLong(userIdStr);
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Invalid user ID format"));
-        }
+    public ResponseEntity<?> getUserProfile(@RequestParam Long userId) {
+        SecurityUtil.requireAdmin();
 
         User user = userService.getUserById(userId);
         if (user == null) {
@@ -171,6 +167,7 @@ public class UserController {
 
     @GetMapping("/users/active/statistics")
     public ResponseEntity<?> getActiveUsers() {
+        SecurityUtil.requireAdmin();
         Map<String, Object> stat = Map.of(
                 "count", trafficStatService.getActiveUsers(),
                 "percent", 0.1

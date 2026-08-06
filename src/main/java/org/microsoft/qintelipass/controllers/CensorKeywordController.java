@@ -5,6 +5,7 @@ import org.microsoft.qintelipass.dtos.CensorKeywordDTO;
 import org.microsoft.qintelipass.entity.CensorKeyword;
 import org.microsoft.qintelipass.repository.CensorKeywordRepository;
 import org.microsoft.qintelipass.services.censor.CensorKeywordLoader;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -46,7 +47,7 @@ public class CensorKeywordController {
             @RequestParam(value = "enabled", required = false) Boolean enabled,
             @RequestParam(value = "page", defaultValue = "1") int page,
             @RequestParam(value = "size", defaultValue = "1000") int size) {
-
+        SecurityUtil.requireAdmin();
         Specification<CensorKeyword> spec = (root, query, cb) -> {
             List<Predicate> predicates = new ArrayList<>();
             if (keyword != null && !keyword.trim().isEmpty()) {
@@ -90,6 +91,7 @@ public class CensorKeywordController {
      */
     @PostMapping
     public ResponseEntity<?> createKeyword(@RequestBody CensorKeywordDTO dto) {
+        SecurityUtil.requireAdmin();
         String keyword = normalize(dto.getKeyword());
         if (keyword == null) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Keyword must not be blank"));
@@ -110,6 +112,7 @@ public class CensorKeywordController {
 
     @PostMapping(value = "/import", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<?> importKeywordsFromJson(@RequestBody Object body) {
+        SecurityUtil.requireAdmin();
         List<CensorKeywordDTO> items = parseJsonImportItems(body);
         ImportResult result = importKeywords(items);
         return ResponseEntity.ok(result.toResponse());
@@ -117,6 +120,7 @@ public class CensorKeywordController {
 
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> importKeywordsFromFile(@RequestParam("file") MultipartFile file) {
+        SecurityUtil.requireAdmin();
         if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "Import file must not be empty"));
         }
@@ -135,6 +139,7 @@ public class CensorKeywordController {
      */
     @PutMapping("/{id}")
     public ResponseEntity<?> updateKeyword(@PathVariable Long id, @RequestBody CensorKeywordDTO dto) {
+        SecurityUtil.requireAdmin();
         Optional<CensorKeyword> opt = censorKeywordRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "关键词不存在"));
@@ -162,6 +167,7 @@ public class CensorKeywordController {
      */
     @PutMapping("/{id}/enabled")
     public ResponseEntity<?> toggleEnabled(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
+        SecurityUtil.requireAdmin();
         Optional<CensorKeyword> opt = censorKeywordRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "关键词不存在"));
@@ -183,6 +189,7 @@ public class CensorKeywordController {
      */
     @PutMapping("/{id}/enable")
     public ResponseEntity<?> enableKeyword(@PathVariable Long id) {
+        SecurityUtil.requireAdmin();
         Optional<CensorKeyword> opt = censorKeywordRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "关键词不存在"));
@@ -196,6 +203,7 @@ public class CensorKeywordController {
 
     @PutMapping("/{id}/disable")
     public ResponseEntity<?> disableKeyword(@PathVariable Long id) {
+        SecurityUtil.requireAdmin();
         Optional<CensorKeyword> opt = censorKeywordRepository.findById(id);
         if (opt.isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "关键词不存在"));
@@ -209,6 +217,7 @@ public class CensorKeywordController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<?> deleteKeyword(@PathVariable Long id) {
+        SecurityUtil.requireAdmin();
         if (!censorKeywordRepository.existsById(id)) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", "关键词不存在"));
         }
