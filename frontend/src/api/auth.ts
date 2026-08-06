@@ -1,5 +1,5 @@
 import http, {getErrorMessage} from './http'
-import {type LoginInfo, saveLoginInfo} from './session'
+import {type LoginInfo, normalizeUserRole, saveLoginInfo} from './session'
 
 type PortalLoginType = 'MOBILE_PWD' | 'MOBILE_CODE'
 
@@ -12,6 +12,7 @@ interface PortalLoginResponse {
   access_token?: unknown
   accessToken?: unknown
   token?: unknown
+  role?: unknown
 }
 
 interface LoginStatusResponse {
@@ -46,7 +47,7 @@ function readNumber(value: unknown) {
   return undefined
 }
 
-function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): LoginInfo {
+function normalizeLoginInfo(response: PortalLoginResponse): LoginInfo {
   if (response.success === false) {
     throw new Error(response.message || '登录失败')
   }
@@ -67,12 +68,12 @@ function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): Logi
     readString(payload.token) ||
     readString(response.access_token) ||
     readString(response.accessToken) ||
-    readString(response.token) ||
-    readString(response.message)
+    readString(response.token)
   const initialConversationId =
     readNumber(payload.initialConversationId) ||
     readNumber(payload.initial_conversation_id) ||
     readNumber(conversationPayload.id)
+  const role = normalizeUserRole(response.role ?? payload.role)
 
   if (!userId) {
     throw new Error('登录成功但后端未返回 user_id')
@@ -85,6 +86,7 @@ function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): Logi
   return {
     userId,
     accessToken,
+    role,
     initialConversationId
   }
 }
@@ -92,7 +94,6 @@ function normalizeLoginInfo(response: PortalLoginResponse, mobile: string): Logi
 async function login(
   loginType: PortalLoginType,
   credential: Record<string, string>,
-  mobile: string,
   fallback: string
 ) {
   try {
@@ -100,7 +101,7 @@ async function login(
       loginType,
       credential
     })
-    const loginInfo = normalizeLoginInfo(data, mobile)
+    const loginInfo = normalizeLoginInfo(data)
 
     saveLoginInfo(loginInfo)
     return loginInfo
@@ -116,7 +117,6 @@ export async function loginByPassword(mobile: string, password: string) {
       mobile,
       password
     },
-    mobile,
     '手机号或密码登录失败'
   )
 }
@@ -144,7 +144,6 @@ export async function loginBySms(mobile: string, smsCode: string) {
       mobile,
       smsCode
     },
-    mobile,
     '验证码登录失败'
   )
 }

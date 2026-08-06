@@ -6,6 +6,8 @@ import {Lock, Message, Phone, User} from '@element-plus/icons-vue'
 import BrandLogo from '../components/BrandLogo.vue'
 import {isValidMobile, sendSmsCode} from '../api/auth'
 import {useAuthStore} from '../stores/auth'
+import {resolvePostLoginPath} from '../router/access'
+import type {UserRole} from '../api/session'
 // 注销用户弹窗处理：检测到 cancelled 错误时弹出注销提示，其他错误抛出交由原逻辑处理
 import {handleLoginError} from '../utils/cancelledUserHandler'
 
@@ -85,9 +87,9 @@ function friendlySendError(error: unknown): string {
   return '验证码发送失败，请稍后重试'
 }
 
-async function redirectAfterLogin() {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/chat'
-  await router.push(redirect)
+async function redirectAfterLogin(role: UserRole) {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : undefined
+  await router.replace(resolvePostLoginPath(role, redirect))
 }
 
 async function handlePasswordLogin() {
@@ -98,8 +100,8 @@ async function handlePasswordLogin() {
 
   submitting.value = true
   try {
-    await authStore.passwordLogin(normalizedPasswordMobile.value, passwordForm.password)
-    await redirectAfterLogin()
+    const loginInfo = await authStore.passwordLogin(normalizedPasswordMobile.value, passwordForm.password)
+    await redirectAfterLogin(loginInfo.role)
   } catch (error) {
     try {
       handleLoginError(error)
@@ -160,8 +162,8 @@ async function handleSmsLogin() {
   submitting.value = true
   smsError.value = null
   try {
-    await authStore.smsLogin(normalizedSmsMobile.value, smsForm.smsCode.trim())
-    await redirectAfterLogin()
+    const loginInfo = await authStore.smsLogin(normalizedSmsMobile.value, smsForm.smsCode.trim())
+    await redirectAfterLogin(loginInfo.role)
   } catch (error) {
     try {
       handleLoginError(error)

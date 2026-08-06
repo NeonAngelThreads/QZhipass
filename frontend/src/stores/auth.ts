@@ -25,8 +25,9 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   function refreshLoginState() {
-    profile.value = readLoginInfo()
-    loggedIn.value = isLoggedIn()
+    const loginInfo = readLoginInfo()
+    profile.value = loginInfo
+    loggedIn.value = Boolean(loginInfo)
   }
 
   function logout() {

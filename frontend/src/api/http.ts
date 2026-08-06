@@ -42,7 +42,9 @@ http.interceptors.response.use(
         clearLoginInfo()
 
         if (window.location.pathname !== '/login') {
-          window.location.assign('/login')
+          const originalPath = `${window.location.pathname}${window.location.search}${window.location.hash}`
+          const search = new URLSearchParams({ redirect: originalPath })
+          window.location.assign(`/login?${search.toString()}`)
         }
       }
 

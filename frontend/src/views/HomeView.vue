@@ -12,7 +12,7 @@ const userId = computed(() => authStore.profile?.userId || '已登录用户')
 
 function logout() {
   authStore.logout()
-  router.push('/login')
+  router.replace('/login')
 }
 </script>
 
