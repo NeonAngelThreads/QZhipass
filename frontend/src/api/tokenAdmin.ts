@@ -7,13 +7,13 @@
 //   2) 把 BASE_URL 改成后端地址，例如 'http://localhost:8080'
 //      （若 vite 已配代理，保持 '' 空字符串即可，最稳）
 //   3) 确认登录后 token 存在 localStorage 的哪个 key：
-//      下面默认读 'token' 和 'userId'，不对就改这两个字符串。
+//      下面默认读 'token'，不对就改这个字符串。
+//      鉴权统一走 Authorization: Bearer <token>（后端 SecurityUtil 解析）。
 // ============================================================
 
 const USE_MOCK = true
 const BASE_URL = '' // 真后端地址；用 vite 代理时留空
 const TOKEN_KEY = 'token'
-const USERID_KEY = 'userId'
 
 // ---------- 归一化后的类型（页面只认这些，不关心后端 rawData/data 差异） ----------
 export interface EmployeeRow {
@@ -35,6 +35,7 @@ export interface Dashboard {
 }
 export interface QuotaDetail {
   userId: string
+  userName: string
   effectiveQuota: number
   globalDefaultQuota: number
   isPersonalized: boolean
@@ -74,9 +75,7 @@ export interface ApiRes<T> { success: boolean; message?: string; data?: T }
 function authHeaders(): Record<string, string> {
   const h: Record<string, string> = { 'Content-Type': 'application/json' }
   const t = localStorage.getItem(TOKEN_KEY)
-  const u = localStorage.getItem(USERID_KEY)
   if (t) h['Authorization'] = `Bearer ${t}`
-  if (u) h['X-User-Id'] = u
   return h
 }
 async function http<T = any>(method: string, path: string, body?: any): Promise<T> {
@@ -86,9 +85,6 @@ async function http<T = any>(method: string, path: string, body?: any): Promise<
     body: body ? JSON.stringify(body) : undefined,
   })
   return (await res.json()) as T
-}
-function adminId(): number {
-  return Number(localStorage.getItem(USERID_KEY)) || 1
 }
 
 // ============================================================
@@ -133,6 +129,7 @@ function mockQuotaDetail(userId: string): QuotaDetail {
   const e = mockState.employees.find((x) => x.id === userId)
   return {
     userId,
+    userName: e?.name ?? '',
     effectiveQuota: e?.quota ?? mockState.globalLimit,
     globalDefaultQuota: mockState.globalLimit,
     isPersonalized: e?.isPersonalized ?? false,
@@ -182,30 +179,40 @@ function mockLogs(p: { operator?: string; target?: string; start?: number; end?:
 }
 
 // ---------- 真后端：把后端返回映射成归一化结构 ----------
+// 后端 dashboard 接口员工字段：id/name/department/totalTokens/quota/overQuota
+// 注意：后端不返回 isPersonalized，需通过 quota !== globalLimit 推断。
 const normDashboard = (j: any): Dashboard => {
   const r = j.rawData || j.data || {}
+  const globalLimit = r.globalLimit ?? 0
   return {
     activeUsers: r.activeUsers ?? 0,
     overQuotaUsers: r.overQuotaUsers ?? 0,
     todayTotal: r.todayTotalConsumption ?? 0,
-    globalLimit: r.globalLimit ?? 0,
+    globalLimit,
     chart: { labels: r.chartData?.labels ?? [], datasets: (r.chartData?.datasets ?? []).map((d: any) => ({ label: d.label, data: d.data })) },
-    employees: (r.employees ?? []).map((e: any) => ({ id: String(e.id), name: e.name, department: e.department, totalTokens: e.totalTokens, quota: e.quota, isPersonalized: !!e.isPersonalized })),
+    employees: (r.employees ?? []).map((e: any) => ({
+      id: String(e.id),
+      name: e.name,
+      department: e.department,
+      totalTokens: e.totalTokens,
+      quota: e.quota,
+      isPersonalized: e.quota !== globalLimit,
+    })),
   }
 }
-const normDetail = (j: any, userId: string): QuotaDetail => {
-  const r = j.data || j.rawData || {}
-  return { userId, effectiveQuota: r.effectiveQuota, globalDefaultQuota: r.globalDefaultQuota, isPersonalized: !!r.isPersonalized, todayConsumed: r.todayConsumed, todayRemaining: r.todayRemaining }
-}
-const normUpdate = (j: any): UpdateResult => {
-  const r = j.rawData || j.data || {}
-  return { userId: String(r.userId), userName: r.userName, oldQuota: r.oldQuota, newQuota: r.newQuota, currentConsumption: r.currentConsumption, remaining: r.remaining, canChat: !!r.canChat, isPersonalized: !!r.isPersonalized }
-}
-const normLogs = (j: any, page: number, size: number): LogPage => {
-  const r = j.rawData || j.data || {}
+// 从 dashboard 数据中提取单个用户的配额详情
+const detailFromDashboard = (r: any, userId: string): QuotaDetail | null => {
+  const globalLimit = r.globalLimit ?? 0
+  const e = (r.employees ?? []).find((x: any) => String(x.id) === String(userId))
+  if (!e) return null
   return {
-    list: (r.content ?? []).map((l: any) => ({ id: l.id, operatorName: l.operatorName, targetUserId: String(l.targetUserId), targetUserName: l.targetUserName, oldQuota: l.oldQuota, newQuota: l.newQuota, currentConsumption: l.currentConsumption, operatedAt: l.operatedAt })),
-    total: r.totalElements ?? 0, totalPages: r.totalPages ?? 1, page: r.number ?? page, size: r.size ?? size,
+    userId,
+    userName: e.name,
+    effectiveQuota: e.quota,
+    globalDefaultQuota: globalLimit,
+    isPersonalized: e.quota !== globalLimit,
+    todayConsumed: e.totalTokens,
+    todayRemaining: Math.max(e.quota - e.totalTokens, 0),
   }
 }
 
@@ -219,36 +226,87 @@ export async function getDashboard(): Promise<ApiRes<Dashboard>> {
   try { const j = await http('GET', '/api/v1/admin/token/dashboard'); return j.success ? { success: true, data: normDashboard(j) } : { success: false, message: j.message } }
   catch (e: any) { return { success: false, message: e.message } }
 }
+// 后端无 GET /quota/{userId} 接口，从 dashboard 数据中聚合出用户配额详情
 export async function getQuotaDetail(userId: string): Promise<ApiRes<QuotaDetail>> {
   if (USE_MOCK) { await delay(); return { success: true, data: mockQuotaDetail(userId) } }
-  try { const j = await http('GET', `/api/v1/admin/token/quota/${userId}`); return j.success ? { success: true, data: normDetail(j, userId) } : { success: false, message: j.message } }
-  catch (e: any) { return { success: false, message: e.message } }
+  try {
+    const j = await http('GET', '/api/v1/admin/token/dashboard')
+    if (!j.success) throw new Error(j.message || '获取员工列表失败')
+    const r = j.rawData || j.data || {}
+    const detail = detailFromDashboard(r, userId)
+    if (!detail) throw new Error('员工不存在')
+    return { success: true, data: detail }
+  } catch (e: any) { return { success: false, message: e.message } }
 }
+// 后端 PUT /quota/{userId} 仅返回 {success, message}，UpdateResult 需自行聚合
 export async function updateQuota(userId: string, dailyLimit: number): Promise<ApiRes<UpdateResult>> {
   if (USE_MOCK) { await delay(); return { success: true, data: mockUpdate(userId, dailyLimit) } }
-  try { const j = await http('PUT', `/api/v1/admin/token/quota/${userId}`, { daily_token_limit: dailyLimit, adminUserId: adminId() }); return j.success ? { success: true, data: normUpdate(j), message: j.message } : { success: false, message: j.message } }
-  catch (e: any) { return { success: false, message: e.message } }
+  try {
+    // 先取 dashboard 获取旧配额/已用量/姓名
+    const dash = await http('GET', '/api/v1/admin/token/dashboard')
+    if (!dash.success) throw new Error(dash.message || '获取员工列表失败')
+    const r = dash.rawData || dash.data || {}
+    const e = (r.employees ?? []).find((x: any) => String(x.id) === String(userId))
+    const oldQuota = e?.quota ?? 0
+    const consumed = e?.totalTokens ?? 0
+
+    const j = await http('PUT', `/api/v1/admin/token/quota/${userId}`, { daily_token_limit: dailyLimit })
+    if (!j.success) throw new Error(j.message || '更新配额失败')
+
+    return {
+      success: true,
+      data: {
+        userId,
+        userName: e?.name ?? '',
+        oldQuota,
+        newQuota: dailyLimit,
+        currentConsumption: consumed,
+        remaining: Math.max(dailyLimit - consumed, 0),
+        canChat: dailyLimit > consumed,
+        isPersonalized: true,
+      },
+      message: j.message,
+    }
+  } catch (e: any) { return { success: false, message: e.message } }
 }
+// 后端无 DELETE /quota/{userId} 接口，"重置" 等同于把用户配额设回全局默认值
 export async function resetQuota(userId: string): Promise<ApiRes<UpdateResult>> {
   if (USE_MOCK) { await delay(); return { success: true, data: mockReset(userId) } }
-  try { const j = await http('DELETE', `/api/v1/admin/token/quota/${userId}?adminUserId=${adminId()}`); return j.success ? { success: true, data: normUpdate(j), message: j.message } : { success: false, message: j.message } }
-  catch (e: any) { return { success: false, message: e.message } }
+  try {
+    const dash = await http('GET', '/api/v1/admin/token/dashboard')
+    if (!dash.success) throw new Error(dash.message || '获取员工列表失败')
+    const r = dash.rawData || dash.data || {}
+    const globalLimit = r.globalLimit ?? 0
+    const e = (r.employees ?? []).find((x: any) => String(x.id) === String(userId))
+    const oldQuota = e?.quota ?? 0
+    const consumed = e?.totalTokens ?? 0
+
+    const j = await http('PUT', `/api/v1/admin/token/quota/${userId}`, { daily_token_limit: globalLimit })
+    if (!j.success) throw new Error(j.message || '重置配额失败')
+
+    return {
+      success: true,
+      data: {
+        userId,
+        userName: e?.name ?? '',
+        oldQuota,
+        newQuota: globalLimit,
+        currentConsumption: consumed,
+        remaining: Math.max(globalLimit - consumed, 0),
+        canChat: globalLimit > consumed,
+        isPersonalized: false,
+      },
+      message: j.message,
+    }
+  } catch (e: any) { return { success: false, message: e.message } }
 }
 export async function setGlobalQuota(dailyLimit: number): Promise<ApiRes<{ dailyLimit: number; affectedUsers: number }>> {
   if (USE_MOCK) { await delay(); return { success: true, data: mockSetGlobal(dailyLimit) } }
   try { const j = await http('PUT', '/api/v1/admin/token/quota', { daily_token_limit: dailyLimit }); const r = j.rawData || j.data || {}; return j.success ? { success: true, data: { dailyLimit: r.daily_limit, affectedUsers: r.affectedUsers }, message: j.message } : { success: false, message: j.message } }
   catch (e: any) { return { success: false, message: e.message } }
 }
+// 后端目前无配额操作日志接口，真后端模式下返回空分页
 export async function getQuotaLogs(p: { operator?: string; target?: string; start?: number; end?: number; page: number; size: number }): Promise<ApiRes<LogPage>> {
   if (USE_MOCK) { await delay(); return { success: true, data: mockLogs(p) } }
-  try {
-    const q = new URLSearchParams()
-    if (p.operator) q.set('operatorId', p.operator)
-    if (p.target) q.set('targetUserId', p.target)
-    if (p.start) q.set('startTime', String(p.start))
-    if (p.end) q.set('endTime', String(p.end))
-    q.set('page', String(p.page)); q.set('size', String(p.size))
-    const j = await http('GET', `/api/v1/admin/token/quota/logs?${q.toString()}`)
-    return j.success ? { success: true, data: normLogs(j, p.page, p.size) } : { success: false, message: j.message }
-  } catch (e: any) { return { success: false, message: e.message } }
+  return { success: true, data: { list: [], total: 0, totalPages: 1, page: p.page, size: p.size } }
 }
