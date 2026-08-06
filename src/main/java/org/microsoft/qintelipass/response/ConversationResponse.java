@@ -12,7 +12,11 @@ public record ConversationResponse(
         String status,
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
-        LocalDateTime lastMessageAt
+        LocalDateTime lastMessageAt,
+        LocalDateTime firstAnsweredAt,
+        LocalDateTime lastSavedAt,
+        boolean userDeleted,
+        LocalDateTime userDeletedAt
 ) {
     public static ConversationResponse from(Conversation conversation) {
         return new ConversationResponse(
@@ -23,7 +27,11 @@ public record ConversationResponse(
                 conversation.getStatus(),
                 conversation.getCreatedAt(),
                 conversation.getUpdatedAt(),
-                conversation.getLastMessageAt()
+                conversation.getLastMessageAt(),
+                conversation.getFirstAnsweredAt(),
+                conversation.getLastSavedAt(),
+                conversation.isUserDeleted(),
+                conversation.getUserDeletedAt()
         );
     }
 }

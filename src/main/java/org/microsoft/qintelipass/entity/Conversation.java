@@ -1,6 +1,15 @@
 package org.microsoft.qintelipass.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.util.StringUtils;
@@ -15,6 +24,7 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_conversations_user_id", columnList = "user_id"),
                 @Index(name = "idx_conversations_user_last_message", columnList = "user_id,last_message_at"),
+                @Index(name = "idx_conversations_user_visible_last_message", columnList = "user_id,user_deleted,last_message_at"),
                 @Index(name = "idx_conversations_model_key", columnList = "model_key")
         }
 )
@@ -22,6 +32,8 @@ import java.time.LocalDateTime;
 public class Conversation {
     public static final String DEFAULT_TITLE = "\u65b0\u5efa\u5bf9\u8bdd";
     public static final String STATUS_ACTIVE = "ACTIVE";
+    public static final String STATUS_PENDING = "PENDING";
+    public static final String STATUS_FAILED = "FAILED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -42,6 +54,29 @@ public class Conversation {
     @Column(name = "title_customized", nullable = false)
     private boolean titleCustomized;
 
+    @Column(name = "title_generated", nullable = false)
+    private boolean titleGenerated;
+
+    @Column(name = "first_answered_at")
+    private LocalDateTime firstAnsweredAt;
+
+    @Column(name = "last_saved_at")
+    private LocalDateTime lastSavedAt;
+
+    /**
+     * A user deletion is deliberately non-destructive.  Hidden conversations stay in MySQL
+     * for audit and administrator review, but are excluded from all user-facing reads.
+     */
+    @Column(name = "user_deleted", nullable = false)
+    private boolean userDeleted;
+
+    @Column(name = "user_deleted_at")
+    private LocalDateTime userDeletedAt;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
@@ -57,6 +92,7 @@ public class Conversation {
         createdAt = now;
         updatedAt = now;
         lastMessageAt = now;
+        lastSavedAt = now;
         if (!StringUtils.hasText(title)) {
             title = DEFAULT_TITLE;
         }

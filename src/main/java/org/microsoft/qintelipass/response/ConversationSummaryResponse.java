@@ -12,7 +12,8 @@ public record ConversationSummaryResponse(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         LocalDateTime lastMessageAt,
-        long messageCount
+        long messageCount,
+        boolean userDeleted
 ) {
     public static ConversationSummaryResponse from(Conversation conversation, long messageCount) {
         return new ConversationSummaryResponse(
@@ -23,7 +24,8 @@ public record ConversationSummaryResponse(
                 conversation.getCreatedAt(),
                 conversation.getUpdatedAt(),
                 conversation.getLastMessageAt(),
-                messageCount
+                messageCount,
+                conversation.isUserDeleted()
         );
     }
 }
