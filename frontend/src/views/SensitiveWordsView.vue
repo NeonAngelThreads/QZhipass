@@ -15,15 +15,17 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import http, { getErrorMessage } from '../api/http'
+import { getErrorMessage } from '../api/http'
+import {
+  createCensorKeyword,
+  deleteCensorKeyword,
+  listCensorKeywords,
+  setCensorKeywordEnabled,
+  type CensorKeywordPayload
+} from '../api/admin'
 
 // ========== API data types ==========
-interface CensorKeywordDTO {
-  id: number
-  keyword: string
-  enabled: boolean
-  createdAt: string
-}
+type CensorKeywordDTO = CensorKeywordPayload
 
 // ========== Reactive data ==========
 const keywords = ref<CensorKeywordDTO[]>([])
@@ -33,11 +35,7 @@ const loading = ref(false)
 async function loadKeywords() {
   loading.value = true
   try {
-    const res = await http.get('/v1/admin/keywords')
-    const data = res.data
-    if (data && data.items) {
-      keywords.value = data.items as CensorKeywordDTO[]
-    }
+    keywords.value = await listCensorKeywords()
   } catch (e) {
     ElMessage.error(getErrorMessage(e, 'Failed to load keywords'))
   } finally {
@@ -126,10 +124,10 @@ function statusText(enabled: boolean) {
 async function toggleStatus(word: CensorKeywordDTO) {
   try {
     if (word.enabled) {
-      await http.put(`/v1/admin/keywords/${word.id}/disable`)
+      await setCensorKeywordEnabled(word.id, false)
       ElMessage.success('已停用')
     } else {
-      await http.put(`/v1/admin/keywords/${word.id}/enable`)
+      await setCensorKeywordEnabled(word.id, true)
       ElMessage.success('已启用')
     }
     await loadKeywords()
@@ -141,7 +139,7 @@ async function toggleStatus(word: CensorKeywordDTO) {
 async function batchEnable() {
   try {
     for (const id of selectedIds.value) {
-      await http.put(`/v1/admin/keywords/${id}/enable`)
+      await setCensorKeywordEnabled(id, true)
     }
     ElMessage.success('已批量启用')
     selectedIds.value = new Set()
@@ -154,7 +152,7 @@ async function batchEnable() {
 async function batchDisable() {
   try {
     for (const id of selectedIds.value) {
-      await http.put(`/v1/admin/keywords/${id}/disable`)
+      await setCensorKeywordEnabled(id, false)
     }
     ElMessage.success('已批量停用')
     selectedIds.value = new Set()
@@ -166,7 +164,7 @@ async function batchDisable() {
 
 async function deleteWord(word: CensorKeywordDTO) {
   try {
-    await http.delete(`/v1/admin/keywords/${word.id}`)
+    await deleteCensorKeyword(word.id)
     ElMessage.success('已删除')
     await loadKeywords()
   } catch (e) {
@@ -180,7 +178,7 @@ const newKeyword = ref('')
 async function addWord() {
   if (!newKeyword.value.trim()) return
   try {
-    await http.post('/v1/admin/keywords', { keyword: newKeyword.value.trim() })
+    await createCensorKeyword(newKeyword.value)
     ElMessage.success('已添加')
     addDialogVisible.value = false
     newKeyword.value = ''

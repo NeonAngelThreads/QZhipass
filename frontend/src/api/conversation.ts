@@ -82,7 +82,8 @@ export async function updateConversationModel(conversationId: number, modelKey: 
 }
 
 export async function deleteConversation(conversationId: number) {
-  await http.delete<ApiResponse<null>>(`/v1/conversations/${conversationId}`)
+  void conversationId
+  throw new Error('后端尚未提供删除对话接口，当前无法完成真实删除。')
 }
 
 export async function sendConversationTurn(
@@ -93,7 +94,8 @@ export async function sendConversationTurn(
 ) {
   const response = await http.post<ApiResponse<ConversationTurnPayload>>(
       conversationId === null ? '/v1/conversations/turns' : `/v1/conversations/${conversationId}/turns`,
-      { prompt, modelKey, requestId }
+      { prompt, modelKey, requestId },
+      { timeout: 0 }
   )
   if (!response.data.data) throw new Error(response.data.message || 'AI 回复失败')
   return response.data.data

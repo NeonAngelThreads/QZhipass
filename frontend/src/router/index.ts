@@ -19,9 +19,11 @@ const routes: RouteRecordRaw[] = [
   { path: '/admin/alerts', name: 'Alerts', component: () => import('../views/AlertCenterView.vue'), meta: { title: '告警中心', requiresAuth: true, adminOnly: true } },
   { path: '/admin/users', name: 'Users', component: () => import('../views/UserManagementView.vue'), meta: { title: '用户管理', requiresAuth: true, adminOnly: true } },
   { path: '/token', name: 'TokenQuota', component: () => import('../views/TokenQuotaView.vue'), meta: { title: 'Token 配额主控台', requiresAuth: true, adminOnly: true } },
-  { path: '/:pathMatch(.*)*', redirect: () => {
+  { path: '/:pathMatch(.*)*', redirect: (to) => {
     const loginInfo = readLoginInfo()
-    return loginInfo ? getDefaultPathForRole(loginInfo.role) : '/login'
+    return loginInfo
+      ? getDefaultPathForRole(loginInfo.role)
+      : { path: '/login', query: { redirect: to.fullPath } }
   } },
 ]
 

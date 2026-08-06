@@ -3,10 +3,16 @@ import {type Component, computed, nextTick, onBeforeUnmount, onMounted, ref, wat
 import {ElMessage} from 'element-plus'
 import {useRouter} from 'vue-router'
 import BrandLogo from '../components/BrandLogo.vue'
-import http, {getErrorMessage} from '../api/http'
+import {getErrorMessage} from '../api/http'
 import {readLoginInfo, saveInitialConversationId} from '../api/session'
 import {useAuthStore} from '../stores/auth'
-import {listAvailableModels, type ModelPayload} from '../api/conversation'
+import {
+  createConversation,
+  listAvailableModels,
+  type ModelPayload
+} from '../api/conversation'
+import { listAgents } from '../api/agent'
+import { getCurrentTokenUsage } from '../api/token'
 import {
   Bell,
   ChatDotSquare,
@@ -24,52 +30,32 @@ const authStore = useAuthStore()
 // ========== state ==========
 const searchQuery = ref('')
 const inputText = ref('')
-const selectedModel = ref('gpt4-omni')
-const selectedAgent = ref('data-analyst')
+const selectedModel = ref('')
+const selectedAgent = ref('')
 const selectedChatId = ref<number | null>(null)
 const showModelDropdown = ref(false)
 const showAgentDropdown = ref(false)
 const creatingConversation = ref(false)
 
-const tokenLimit = 100000
-const tokenUsed = 64000
-const tokenPercent = computed(() => Math.round((tokenUsed / tokenLimit) * 100))
+const tokenLimit = ref(0)
+const tokenUsed = ref(0)
+const tokenPercent = computed(() => tokenLimit.value > 0
+  ? Math.min(Math.round((tokenUsed.value / tokenLimit.value) * 100), 100)
+  : 0)
+const models = ref<ModelPayload[]>([])
 
-const fallbackModels = [
-  { value: 'gpt4-omni', label: 'GPT-4 Omni' },
-  { value: 'gpt4-turbo', label: 'GPT-4 Turbo' },
-  { value: 'claude-3.5', label: 'Claude 3.5 Sonnet' },
-  { value: 'qwen3', label: '千问3' },
-  { value: 'deepseek-v4', label: 'DeepSeek-V4' },
-]
-const models = ref<ModelPayload[]>(fallbackModels.map(model => ({
-  modelKey: model.value,
-  displayName: model.label,
-  provider: 'local'
-})))
-
-const agents = [
-  { value: 'data-analyst', label: 'Data Analyst Agent' },
-  { value: 'copywriter', label: 'Copywriter Agent' },
-  { value: 'coder', label: 'Code Assistant Agent' },
-]
-
-interface ApiResponse<T> {
-  success?: boolean
-  message?: string
-  data?: T
-}
-
-interface ConversationPayload {
-  id: number
-  title?: string
-  modelKey?: string | null
-}
+const agents = ref<{ value: string; label: string }[]>([])
 
 interface ChatItem {
   id: number
   title: string
   icon: Component
+}
+
+interface ActiveConversation {
+  id: number
+  title?: string
+  modelKey?: string | null
 }
 
 interface CreateConversationOptions {
@@ -98,7 +84,7 @@ function selectChat(id: number) {
   selectedChatId.value = id
 }
 
-function activateConversation(conversation: ConversationPayload) {
+function activateConversation(conversation: ActiveConversation) {
   const title = conversation.title || '新建对话'
   const existing = chats.value.find(chat => chat.id === conversation.id)
 
@@ -135,14 +121,7 @@ async function createNewConversation(options: CreateConversationOptions = {}) {
 
   creatingConversation.value = true
   try {
-    const { data } = await http.post<ApiResponse<ConversationPayload>>('/v1/conversations', {
-      modelKey: selectedModel.value
-    })
-    const conversation = data.data
-
-    if (!conversation?.id) {
-      throw new Error(data.message || '新建对话失败')
-    }
+    const conversation = await createConversation(selectedModel.value || undefined)
 
     activateConversation(conversation)
     if (options.persistAsInitial) {
@@ -191,6 +170,20 @@ onMounted(() => {
         }
       })
       .catch(error => ElMessage.error(getErrorMessage(error, '读取模型列表失败')))
+  void listAgents()
+      .then(availableAgents => {
+        agents.value = availableAgents.map(agent => ({ value: agent.id, label: agent.name }))
+        if (!availableAgents.some(agent => agent.id === selectedAgent.value)) {
+          selectedAgent.value = availableAgents[0]?.id ?? ''
+        }
+      })
+      .catch(error => ElMessage.error(getErrorMessage(error, '读取 Agent 列表失败')))
+  void getCurrentTokenUsage()
+      .then(usage => {
+        tokenLimit.value = usage.dailyLimit
+        tokenUsed.value = usage.usedToday
+      })
+      .catch(error => ElMessage.error(getErrorMessage(error, '读取 Token 使用情况失败')))
   initializeConversationFromLogin()
   window.addEventListener('keydown', handleGlobalKeydown)
 })
@@ -245,7 +238,9 @@ watch(
 )
 
 const modelLabel = computed(() => models.value.find(m => m.modelKey === selectedModel.value)?.displayName ?? '')
-const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.value)?.label ?? '')
+const agentLabel = computed(() => agents.value.find(a => a.value === selectedAgent.value)?.label ?? '未选择 Agent')
+const currentUserRole = computed(() => authStore.profile?.role === 'ADMIN' ? '企业管理员' : '企业用户')
+const currentUserAvatar = computed(() => authStore.profile?.role === 'ADMIN' ? '管' : '用')
 </script>
 
 <template>
@@ -318,11 +313,11 @@ const agentLabel = computed(() => agents.find(a => a.value === selectedAgent.val
           <div
             class="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-bold text-white"
           >
-            张
+            {{ currentUserAvatar }}
           </div>
           <div class="min-w-0 flex-1">
-            <p class="truncate text-sm font-medium text-gray-800">张经理</p>
-            <p class="truncate text-xs text-gray-400">企业管理员</p>
+            <p class="truncate text-sm font-medium text-gray-800">当前用户</p>
+            <p class="truncate text-xs text-gray-400">{{ currentUserRole }}</p>
           </div>
           <button
             class="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-red-500"

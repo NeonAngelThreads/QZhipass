@@ -59,7 +59,7 @@ const menu: MenuItem[] = [
   { key: 'sm', label: '敏感词管理', icon: Lock, to: '/admin/sensitive-words' },
   { key: 'token', label: '个人 Token 统计', icon: DataLine, to: '/token' },
   { key: 'log', label: '触发日志', icon: Document, to: '/admin/security-logs' },
-  { key: 'alert', label: '告警', icon: Bell, to: '/admin/alerts', badge: 3 },
+  { key: 'alert', label: '告警', icon: Bell, to: '/admin/alerts' },
   { key: 'set', label: '系统设置', icon: Setting, action: true }, // 暂无对应页面
 ]
 function onSettings() { ElMessage.info('系统设置模块开发中，敬请期待') }
@@ -84,6 +84,7 @@ async function loadDashboard() {
     chart.labels = d.chart.labels
     chart.datasets = d.chart.datasets
     employees.value = d.employees
+    globalInput.value = d.globalLimit
     lastUpdate.value = new Date().toLocaleString('zh-CN')
   } catch (e: any) {
     ElMessage.error(e.message || '加载看板数据失败')
@@ -109,8 +110,7 @@ function patchRow(userId: string, patch: Partial<EmployeeRow>) {
   if (i >= 0) employees.value[i] = { ...employees.value[i], ...patch }
 }
 function recomputeOverQuota() {
-  const base = 18
-  overview.overQuotaUsers = base + employees.value.filter((e) => e.totalTokens >= e.quota).length
+  overview.overQuotaUsers = employees.value.filter((e) => e.totalTokens >= e.quota).length
 }
 
 // ==================== 调整上限弹窗 ====================

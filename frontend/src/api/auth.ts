@@ -1,7 +1,7 @@
 import http, {getErrorMessage} from './http'
 import {type LoginInfo, normalizeUserRole, saveLoginInfo} from './session'
 
-type PortalLoginType = 'MOBILE_PWD' | 'MOBILE_CODE'
+type PortalLoginType = 'MOBILE_PWD' | 'MOBILE_CODE' | 'EMAIL_PWD'
 
 interface PortalLoginResponse {
   success?: boolean
@@ -20,9 +20,14 @@ interface LoginStatusResponse {
 }
 
 const MOBILE_PATTERN = /^1[3-9]\d{9}$/
+const EMAIL_PATTERN = /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i
 
 export function isValidMobile(mobile: string) {
   return MOBILE_PATTERN.test(mobile)
+}
+
+export function isValidEmail(email: string) {
+  return EMAIL_PATTERN.test(email.trim())
 }
 
 function readString(value: unknown) {
@@ -148,10 +153,21 @@ export async function loginBySms(mobile: string, smsCode: string) {
   )
 }
 
-export async function checkLoginStatus(userId: string) {
+export async function loginByEmail(email: string, password: string) {
+  return login(
+    'EMAIL_PWD',
+    {
+      email: email.trim(),
+      password
+    },
+    '邮箱或密码登录失败'
+  )
+}
+
+export async function checkLoginStatus(phone: string) {
   try {
-    const { data } = await http.post<LoginStatusResponse>('/v1/account/status', {
-      User_id: userId
+    const { data } = await http.get<LoginStatusResponse>('/v1/account/status', {
+      params: { phone: phone.trim() }
     })
 
     return Boolean(data?.login)

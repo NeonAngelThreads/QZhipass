@@ -1,5 +1,4 @@
 import http from './http'
-import { readLoginInfo } from './session'
 import type { ApiResponse, ConversationTurnPayload } from './conversation'
 
 export interface AgentPayload {
@@ -47,53 +46,9 @@ export async function invokeAgentStream(
     onEvent: (event: AgentStreamEvent) => void,
     signal?: AbortSignal,
 ) {
-  const baseUrl = String(import.meta.env.VITE_API_BASE_URL || '/api').replace(/\/$/, '')
-  const accessToken = readLoginInfo()?.accessToken
-  const response = await fetch(`${baseUrl}/v1/agents/${agentId}/invoke`, {
-    method: 'POST',
-    credentials: 'include',
-    signal,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-    },
-    body: JSON.stringify(payload),
-  })
-
-  if (!response.ok || !response.body) {
-    throw new Error('Agent调用失败，请稍后重试。')
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ''
-  let streamFailed = false
-
-  while (true) {
-    const { value, done } = await reader.read()
-    buffer += decoder.decode(value, { stream: !done }).replace(/\r\n/g, '\n')
-    const blocks = buffer.split('\n\n')
-    buffer = blocks.pop() ?? ''
-
-    for (const block of blocks) {
-      const data = block
-          .split('\n')
-          .filter(line => line.startsWith('data:'))
-          .map(line => line.slice(5).trimStart())
-          .join('\n')
-      if (!data) continue
-
-      const event = JSON.parse(data) as AgentStreamEvent
-      onEvent(event)
-      if (event.type === 'error') {
-        streamFailed = true
-      }
-    }
-
-    if (done) break
-  }
-
-  if (streamFailed) {
-    throw new Error('Agent调用失败，请稍后重试。')
-  }
+  void agentId
+  void payload
+  void onEvent
+  void signal
+  throw new Error('后端尚未提供 Agent 调用接口，当前无法完成真实调用。')
 }

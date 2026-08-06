@@ -29,9 +29,9 @@ export function getDefaultPathForRole(role: UserRole) {
 }
 
 export function resolvePostLoginPath(role: UserRole, redirect?: string) {
-  if (role === 'ADMIN') {
-    return redirect && isAdminTarget(redirect) ? redirect : ADMIN_ENTRY_PATH
+  if (redirect && (isUserTarget(redirect) || (role === 'ADMIN' && isAdminTarget(redirect)))) {
+    return redirect
   }
 
-  return redirect && isUserTarget(redirect) ? redirect : USER_HOME_PATH
+  return getDefaultPathForRole(role)
 }
