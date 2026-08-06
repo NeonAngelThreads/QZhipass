@@ -9,16 +9,11 @@ import {useAuthStore} from '../stores/auth'
 import {
   Bell,
   ChatDotSquare,
-  Download,
   Headset,
-  Histogram,
-  HomeFilled,
   Paperclip,
   Search,
   Setting,
-  Share,
   SwitchButton,
-  Upload,
   UserFilled,
 } from '@element-plus/icons-vue'
 
@@ -39,13 +34,18 @@ const tokenLimit = 100000
 const tokenUsed = 64000
 const tokenPercent = computed(() => Math.round((tokenUsed / tokenLimit) * 100))
 
-const models = [
+const fallbackModels = [
   { value: 'gpt4-omni', label: 'GPT-4 Omni' },
   { value: 'gpt4-turbo', label: 'GPT-4 Turbo' },
   { value: 'claude-3.5', label: 'Claude 3.5 Sonnet' },
   { value: 'qwen3', label: '千问3' },
   { value: 'deepseek-v4', label: 'DeepSeek-V4' },
 ]
+const models = ref<ModelPayload[]>(fallbackModels.map(model => ({
+  modelKey: model.value,
+  displayName: model.label,
+  provider: 'local'
+})))
 
 const agents = [
   { value: 'data-analyst', label: 'Data Analyst Agent' },
@@ -166,7 +166,20 @@ function selectModel(val: string) {
 }
 
 function toggleModelDropdown() {
-  showModelDropdown.value = !showModelDropdown.value
+  onMounted(() => {
+
+    void listAvailableModels()
+        .then(availableModels => {
+          if (availableModels.length) {
+            models.value = availableModels
+            if (!availableModels.some(model => model.modelKey === selectedModel.value)) {
+              selectedModel.value = availableModels[0].modelKey
+            }
+          }
+        })
+        .catch(error => ElMessage.error(getErrorMessage(error, '读取模型列表失败')))
+    void initializeConversationFromLogin()
+    window.addEventListener('keydown', handleGlobalKeydown)
 }
 
 function handleGlobalKeydown(e: KeyboardEvent) {

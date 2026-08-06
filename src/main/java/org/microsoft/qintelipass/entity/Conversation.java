@@ -58,7 +58,11 @@ public class Conversation implements Persistable<Long> {
 
     @Version
     private Long version = 0L;
+    @Column(name = "user_deleted", nullable = false)
+    private boolean userDeleted;
 
+    @Column(name = "user_deleted_at")
+    private LocalDateTime userDeletedAt;
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;

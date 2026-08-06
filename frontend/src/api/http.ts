@@ -1,9 +1,9 @@
 import axios from 'axios'
-import { clearLoginInfo } from './session'
+import {clearLoginInfo, readLoginInfo} from './session'
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 120000,
+  timeout: 10000,
   withCredentials: true
 })
 
@@ -36,18 +36,26 @@ export function getErrorMessage(error: unknown, fallback: string) {
 }
 
 http.interceptors.response.use(
-  response => response,
-  error => {
-    if (axios.isAxiosError(error) && error.response?.status === 401) {
-      clearLoginInfo()
+    response => response,
+    error => {
+      if (axios.isAxiosError(error) && error.response?.status === 401) {
+        clearLoginInfo()
 
-      if (window.location.pathname !== '/login') {
-        window.location.assign('/login')
+        if (window.location.pathname !== '/login') {
+          window.location.assign('/login')
+        }
       }
-    }
 
-    return Promise.reject(error)
-  }
+      return Promise.reject(error)
+    }
 )
+
+http.interceptors.request.use(request => {
+  const accessToken = readLoginInfo()?.accessToken
+  if (accessToken && !request.headers.Authorization) {
+    request.headers.Authorization = `Bearer ${accessToken}`
+  }
+  return request
+})
 
 export default http

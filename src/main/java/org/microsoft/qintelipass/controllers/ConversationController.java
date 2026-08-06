@@ -2,42 +2,36 @@ package org.microsoft.qintelipass.controllers;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.microsoft.qintelipass.dtos.request.CreateConversationRequest;
-import org.microsoft.qintelipass.dtos.request.ConversationTurnRequest;
-import org.microsoft.qintelipass.dtos.request.SaveConversationMessageRequest;
-import org.microsoft.qintelipass.dtos.request.UpdateConversationModelRequest;
-import org.microsoft.qintelipass.dtos.request.UpdateConversationTitleRequest;
+import lombok.extern.slf4j.Slf4j;
+import org.microsoft.qintelipass.dtos.request.*;
 import org.microsoft.qintelipass.dtos.response.*;
 import org.microsoft.qintelipass.entity.User;
-import org.microsoft.qintelipass.security.SecurityUtil;
+import org.microsoft.qintelipass.services.UserService;
 import org.microsoft.qintelipass.services.censor.CensorService;
 import org.microsoft.qintelipass.services.chat.ConversationService;
 import org.microsoft.qintelipass.services.chat.ConversationTurnService;
-import org.microsoft.qintelipass.services.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("api/v1/conversations")
 // Controller only resolves the current user and request body; ownership is enforced in the service.
 public class ConversationController {
     private final ConversationService conversationService;
-    private final SecurityUtil currentUserService;
     private final CensorService censorService;
     private final UserService userService;
     private final ConversationTurnService conversationTurnService;
 
     public ConversationController(ConversationService conversationService,
-                                  SecurityUtil currentUserService,
                                   CensorService censorService,
                                   UserService userService,
                                   ConversationTurnService conversationTurnService) {
         this.conversationService = conversationService;
-        this.currentUserService = currentUserService;
         this.censorService = censorService;
         this.userService = userService;
         this.conversationTurnService = conversationTurnService;
@@ -49,7 +43,9 @@ public class ConversationController {
             @Valid @RequestBody ConversationTurnRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         ConversationTurnResponse response = conversationTurnService.send(user, conversationId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Turn completed.", response));
     }
@@ -59,7 +55,9 @@ public class ConversationController {
             @Valid @RequestBody ConversationTurnRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         ConversationTurnResponse response = conversationTurnService.sendNew(user, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Conversation created and turn completed.", response));
     }
@@ -69,7 +67,8 @@ public class ConversationController {
             @RequestBody(required = false) CreateConversationRequest request,
             HttpServletRequest httpRequest
     ) {
-        Long userId = currentUserService.getCurrentUserId();
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
         ConversationResponse response = conversationService.createConversation(userService.getUserById(userId), request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -78,7 +77,9 @@ public class ConversationController {
 
     @PostMapping("/initial")
     public ResponseEntity<ApiResponse<ConversationResponse>> createInitialConversation(HttpServletRequest request) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         ConversationResponse response = conversationService.createInitialConversation(user);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
@@ -91,7 +92,9 @@ public class ConversationController {
             @RequestParam(required = false) Integer limit,
             HttpServletRequest request
     ) {
-        Long userId = currentUserService.getCurrentUserId();
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         return ApiResponse.ok(conversationService.listRecentConversations(userId, page, limit));
     }
 
@@ -100,7 +103,9 @@ public class ConversationController {
             @PathVariable Long conversationId,
             HttpServletRequest request
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         return ApiResponse.ok(conversationService.getConversation(user, conversationId));
     }
 
@@ -110,7 +115,9 @@ public class ConversationController {
             @RequestBody SaveConversationMessageRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         ConversationMessageResponse response = conversationService.saveMessage(user, conversationId, request);
 
         // Safe fallback: run sensitive-word check on request content if available
@@ -143,7 +150,9 @@ public class ConversationController {
             @RequestBody UpdateConversationModelRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         return ApiResponse.ok(conversationService.updateModel(user, conversationId, request));
     }
 
@@ -153,7 +162,41 @@ public class ConversationController {
             @RequestBody UpdateConversationTitleRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
+        Long userId = SecurityUtil.getCurrentUserId();
+        log.info("user id: {}", userId);
+        User user = userService.getUserById(userId);
         return ApiResponse.ok(conversationService.updateTitle(user, conversationId, request));
+    }
+}
+
+/**
+ * Audit-only API. Administrator membership comes from app.conversation.admin-user-ids,
+ * never from a user-controlled request header.
+ */
+@RestController
+@RequestMapping("api/v1/admin/conversations")
+class AdminConversationController {
+    private final ConversationService conversationService;
+    public AdminConversationController(
+            ConversationService conversationService
+    ) {
+        this.conversationService = conversationService;
+    }
+
+    @GetMapping
+    public ApiResponse<List<AdminConversationSummaryResponse>> list(
+            @RequestParam(required = false) Integer page,
+            @RequestParam(required = false) Integer limit
+    ) {
+        SecurityUtil.requireAdmin();
+        return ApiResponse.ok(conversationService.listConversationsForAdministrator(page, limit));
+    }
+
+    @GetMapping("/{conversationId}")
+    public ApiResponse<AdminConversationDetailResponse> detail(
+            @PathVariable Long conversationId
+    ) {
+        SecurityUtil.requireAdmin();
+        return ApiResponse.ok(conversationService.getConversationForAdministrator(conversationId));
     }
 }

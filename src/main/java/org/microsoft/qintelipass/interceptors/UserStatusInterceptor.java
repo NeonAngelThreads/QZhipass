@@ -2,8 +2,8 @@ package org.microsoft.qintelipass.interceptors;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.microsoft.qintelipass.security.SecurityUtil;
 import org.microsoft.qintelipass.services.UserService;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 

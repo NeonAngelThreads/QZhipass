@@ -19,6 +19,18 @@ public interface ConversationRepository extends JpaRepository<Conversation, Long
     );
 
     Optional<Conversation> findByIdAndUser_Id(Long id, Long userId);
+    List<Conversation> findByUserIdAndStatusAndUserDeletedFalseOrderByLastMessageAtDescUpdatedAtDescIdDesc(
+            Long userId,
+            String status,
+            Pageable pageable
+    );
+
+    Optional<Conversation> findByIdAndUserId(Long id, Long userId);
+
+    List<Conversation> findByStatusOrderByLastMessageAtDescUpdatedAtDescIdDesc(
+            String status,
+            Pageable pageable
+    );
 
     List<Conversation> findByStatusAndFirstAnsweredAtIsNotNullAndLastMessageAtAfter(
             String status,

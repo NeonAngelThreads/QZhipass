@@ -1,10 +1,9 @@
-package org.microsoft.qintelipass.security;
+package org.microsoft.qintelipass.util.security;
 
 import lombok.extern.slf4j.Slf4j;
-import org.microsoft.qintelipass.repository.UserRepository;
+import org.microsoft.qintelipass.exceptions.UserNotFoundException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +21,10 @@ public class SecurityUtil {
 
     public static Long getCurrentUserId() {
         AuthenticatedUser user = getCurrentAuthenticatedUser();
-        return user != null ? user.getUserId() : null;
+        if (user != null){
+            return user.getUserId();
+        }
+        throw new UserNotFoundException("你未登录哦~ 找不到该user_id");
     }
 
 

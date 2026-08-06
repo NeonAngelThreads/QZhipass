@@ -4,7 +4,7 @@ import org.microsoft.qintelipass.entity.hotkey.Function;
 import org.microsoft.qintelipass.entity.hotkey.Hotkey;
 import org.microsoft.qintelipass.repository.FunctionKeyRepository;
 import org.microsoft.qintelipass.repository.HotkeyRepository;
-import org.microsoft.qintelipass.security.SecurityUtil;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;

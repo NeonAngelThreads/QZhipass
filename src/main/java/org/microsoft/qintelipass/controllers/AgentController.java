@@ -1,36 +1,23 @@
 package org.microsoft.qintelipass.controllers;
 
 import jakarta.servlet.http.HttpServletRequest;
-import jakarta.validation.Valid;
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.dtos.request.CreateAgentRequest;
 import org.microsoft.qintelipass.dtos.response.AgentResponse;
 import org.microsoft.qintelipass.dtos.response.AgentStreamEvent;
 import org.microsoft.qintelipass.dtos.response.ApiResponse;
 import org.microsoft.qintelipass.dtos.response.ConversationTurnResponse;
-import org.microsoft.qintelipass.security.SecurityUtil;
-import org.microsoft.qintelipass.services.agent.AgentInvocationService;
 import org.microsoft.qintelipass.services.agent.AgentService;
-import org.microsoft.qintelipass.services.chat.ConversationTurnService;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
 import org.springframework.http.codec.ServerSentEvent;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
-import reactor.core.scheduler.Schedulers;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @Slf4j
 @RestController
@@ -38,18 +25,13 @@ import java.util.Map;
 public class AgentController {
     private static final int STREAM_CHUNK_CODE_POINTS = 48;
     private final AgentService agentService;
-    private final AgentInvocationService agentInvocationService;
-    private final ConversationTurnService conversationTurnService;
     private final SecurityUtil currentUserService;
+    @Autowired
     public AgentController(
             AgentService agentService,
-            AgentInvocationService agentInvocationService,
-            ConversationTurnService conversationTurnService,
             SecurityUtil currentUserService
     ) {
         this.agentService = agentService;
-        this.agentInvocationService = agentInvocationService;
-        this.conversationTurnService = conversationTurnService;
         this.currentUserService = currentUserService;
     }
     @PostMapping
@@ -57,14 +39,14 @@ public class AgentController {
             @RequestBody CreateAgentRequest request,
             HttpServletRequest httpRequest
     ) {
-        Long userId = currentUserService.getCurrentUserId();
+        Long userId = SecurityUtil.getCurrentUserId();
         AgentResponse agent = agentService.createAgent(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Agent创建成功", agent));
     }
     @GetMapping
     public ApiResponse<List<AgentResponse>> listAgents(HttpServletRequest request) {
-        Long userId = currentUserService.getCurrentUserId();
+        Long userId = SecurityUtil.getCurrentUserId();
         return ApiResponse.ok(agentService.listAgents(userId));
     }
     @DeleteMapping("/{agentId}")
@@ -72,7 +54,7 @@ public class AgentController {
             @PathVariable Long agentId,
             HttpServletRequest request
     ) {
-        Long userId = currentUserService.getCurrentUserId();
+        Long userId = SecurityUtil.getCurrentUserId();
         agentService.deleteAgent(userId, agentId);
         return ApiResponse.ok("Agent已删除", null);
     }

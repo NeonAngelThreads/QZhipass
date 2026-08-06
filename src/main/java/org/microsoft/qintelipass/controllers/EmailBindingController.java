@@ -9,13 +9,9 @@ import org.microsoft.qintelipass.dtos.response.EmailBindingSendCodeResponse;
 import org.microsoft.qintelipass.dtos.response.EmailBindingStatusResponse;
 import org.microsoft.qintelipass.dtos.response.EmailBindingVerifyResponse;
 import org.microsoft.qintelipass.exceptions.UnauthorizedException;
-import org.microsoft.qintelipass.security.SecurityUtil;
 import org.microsoft.qintelipass.services.auth.EmailBindingService;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/account/email-binding")

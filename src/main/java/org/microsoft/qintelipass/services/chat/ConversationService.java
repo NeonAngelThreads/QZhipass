@@ -1,20 +1,20 @@
 package org.microsoft.qintelipass.services.chat;
 
+import org.microsoft.qintelipass.dtos.request.CreateConversationRequest;
+import org.microsoft.qintelipass.dtos.request.SaveConversationMessageRequest;
+import org.microsoft.qintelipass.dtos.request.UpdateConversationModelRequest;
+import org.microsoft.qintelipass.dtos.request.UpdateConversationTitleRequest;
 import org.microsoft.qintelipass.dtos.response.*;
+import org.microsoft.qintelipass.entity.Conversation;
+import org.microsoft.qintelipass.entity.ConversationMessage;
 import org.microsoft.qintelipass.entity.User;
 import org.microsoft.qintelipass.enums.ConversationMessageRole;
 import org.microsoft.qintelipass.enums.ConversationMessageStatus;
 import org.microsoft.qintelipass.exceptions.BadRequestException;
 import org.microsoft.qintelipass.exceptions.ForbiddenException;
 import org.microsoft.qintelipass.exceptions.NotFoundException;
-import org.microsoft.qintelipass.entity.Conversation;
-import org.microsoft.qintelipass.entity.ConversationMessage;
 import org.microsoft.qintelipass.repository.ConversationMessageRepository;
 import org.microsoft.qintelipass.repository.ConversationRepository;
-import org.microsoft.qintelipass.dtos.request.CreateConversationRequest;
-import org.microsoft.qintelipass.dtos.request.SaveConversationMessageRequest;
-import org.microsoft.qintelipass.dtos.request.UpdateConversationModelRequest;
-import org.microsoft.qintelipass.dtos.request.UpdateConversationTitleRequest;
 import org.microsoft.qintelipass.services.ConversationTitleGenerator;
 import org.microsoft.qintelipass.services.TokenCounter;
 import org.microsoft.qintelipass.util.Snowflake;
@@ -236,7 +236,39 @@ public class ConversationService {
         }
         return normalized;
     }
-
+    @Transactional(readOnly = true)
+    public List<AdminConversationSummaryResponse> listConversationsForAdministrator(Integer page, Integer limit) {
+        int safePage = normalizePage(page);
+        int safeLimit = normalizeLimit(limit);
+        return conversationRepository
+                .findByStatusOrderByLastMessageAtDescUpdatedAtDescIdDesc(
+                        Conversation.STATUS_ACTIVE,
+                        PageRequest.of(safePage, safeLimit)
+                )
+                .stream()
+                .map(conversation -> AdminConversationSummaryResponse.from(
+                        conversation,
+                        messageRepository.countByConversation_Id(conversation.getId())
+                ))
+                .toList();
+    }
+    @Transactional(readOnly = true)
+    public AdminConversationDetailResponse getConversationForAdministrator(Long conversationId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new NotFoundException("Conversation does not exist."));
+        List<ConversationMessageResponse> messages = messageRepository
+                .findByConversation_IdOrderByCreatedAtAsc(conversationId)
+                .stream()
+                .map(ConversationMessageResponse::from)
+                .toList();
+        return new AdminConversationDetailResponse(
+                AdminConversationSummaryResponse.from(
+                        conversation,
+                        messageRepository.countByConversation_Id(conversation.getId())
+                ),
+                messages
+        );
+    }
     private void updateDefaultTitleAfterFirstAssistantMessage(
             Conversation conversation,
             ConversationMessageRole role,

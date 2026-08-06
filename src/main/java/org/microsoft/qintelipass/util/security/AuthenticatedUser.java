@@ -1,4 +1,4 @@
-package org.microsoft.qintelipass.security;
+package org.microsoft.qintelipass.util.security;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;

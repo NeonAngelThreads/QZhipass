@@ -1,7 +1,7 @@
 package org.microsoft.qintelipass.configs;
 
-import org.microsoft.qintelipass.security.JwtAuthenticationFilter;
 import org.microsoft.qintelipass.services.user.UserDetailsServiceImpl;
+import org.microsoft.qintelipass.util.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;

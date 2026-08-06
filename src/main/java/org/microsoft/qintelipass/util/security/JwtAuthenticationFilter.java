@@ -1,15 +1,16 @@
-package org.microsoft.qintelipass.security;
+package org.microsoft.qintelipass.util.security;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 import org.jspecify.annotations.Nullable;
 import org.microsoft.qintelipass.ITrafficStatService;
 import org.microsoft.qintelipass.configs.AdminProperties;
-import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.entity.User;
+import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.services.UserService;
 import org.microsoft.qintelipass.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -41,10 +42,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, @Nullable HttpServletResponse response, @Nullable FilterChain filterChain) throws ServletException, IOException {
-        final String authorizationHeader = request.getHeader("Authorization");
+        String jwt = extractToken(request);
 
-        if (authorizationHeader != null && authorizationHeader.startsWith(JwtUtil.BEARER_PREFIX)) {
-            String jwt = authorizationHeader.substring(JwtUtil.BEARER_PREFIX.length());
+        if (jwt != null) {
 
             try {
                 if (!jwtUtil.validateToken(jwt)) {
@@ -94,5 +94,28 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (filterChain != null) {
             filterChain.doFilter(request, response);
         }
+    }
+
+    /**
+     * 从 Authorization 头或 access_token cookie 中提取 JWT。
+     */
+    private String extractToken(HttpServletRequest request) {
+        // 1. 优先从 Authorization: Bearer xxx 头提取
+        String authorizationHeader = request.getHeader("Authorization");
+        if (authorizationHeader != null && authorizationHeader.startsWith(JwtUtil.BEARER_PREFIX)) {
+            return authorizationHeader.substring(JwtUtil.BEARER_PREFIX.length());
+        }
+
+        // 2. 回退到 access_token cookie
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("access_token".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+
+        return null;
     }
 }

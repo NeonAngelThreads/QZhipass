@@ -8,14 +8,17 @@ import org.microsoft.qintelipass.exceptions.ApiException;
 import org.microsoft.qintelipass.repository.FunctionKeyRepository;
 import org.microsoft.qintelipass.repository.HotkeyConfigRepository;
 import org.microsoft.qintelipass.repository.HotkeyRepository;
-import org.microsoft.qintelipass.security.SecurityUtil;
+import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
 @Validated
 @RestController
