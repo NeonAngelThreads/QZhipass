@@ -14,6 +14,12 @@ export interface ConversationPayload {
   lastMessageAt: string
 }
 
+export interface ModelPayload {
+  modelKey: string
+  displayName: string
+  provider: string
+}
+
 export interface ConversationMessagePayload {
   id: number
   role: 'USER' | 'ASSISTANT' | 'SYSTEM'
@@ -50,6 +56,33 @@ export async function createConversation(modelKey?: string) {
   const response = await http.post<ApiResponse<ConversationPayload>>('/v1/conversations', { modelKey })
   if (!response.data.data) throw new Error(response.data.message || '新建对话失败')
   return response.data.data
+}
+
+export async function listAvailableModels() {
+  const response = await http.get<ApiResponse<ModelPayload[]>>('/v1/models/available')
+  return response.data.data ?? []
+}
+
+export async function updateConversationTitle(conversationId: number, title: string) {
+  const response = await http.patch<ApiResponse<ConversationPayload>>(
+    `/v1/conversations/${conversationId}/title`,
+    { title }
+  )
+  if (!response.data.data) throw new Error(response.data.message || '修改标题失败')
+  return response.data.data
+}
+
+export async function updateConversationModel(conversationId: number, modelKey: string) {
+  const response = await http.patch<ApiResponse<ConversationPayload>>(
+    `/v1/conversations/${conversationId}/model`,
+    { modelKey }
+  )
+  if (!response.data.data) throw new Error(response.data.message || '切换模型失败')
+  return response.data.data
+}
+
+export async function deleteConversation(conversationId: number) {
+  await http.delete<ApiResponse<null>>(`/v1/conversations/${conversationId}`)
 }
 
 export async function sendConversationTurn(

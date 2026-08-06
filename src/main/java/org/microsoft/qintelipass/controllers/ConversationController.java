@@ -2,22 +2,31 @@ package org.microsoft.qintelipass.controllers;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
-import org.microsoft.qintelipass.dtos.request.CreateConversationRequest;
-import org.microsoft.qintelipass.dtos.request.ConversationTurnRequest;
-import org.microsoft.qintelipass.dtos.request.SaveConversationMessageRequest;
-import org.microsoft.qintelipass.dtos.request.UpdateConversationModelRequest;
-import org.microsoft.qintelipass.dtos.request.UpdateConversationTitleRequest;
-import org.microsoft.qintelipass.dtos.response.*;
-import org.microsoft.qintelipass.entity.User;
-import org.microsoft.qintelipass.security.SecurityUtil;
-import org.microsoft.qintelipass.services.censor.CensorService;
-import org.microsoft.qintelipass.services.chat.ConversationService;
-import org.microsoft.qintelipass.services.chat.ConversationTurnService;
-import org.microsoft.qintelipass.services.UserService;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.microsoft.qintelipass.request.CreateConversationRequest;
+import org.microsoft.qintelipass.request.ConversationTurnRequest;
+import org.microsoft.qintelipass.request.SaveConversationMessageRequest;
+import org.microsoft.qintelipass.request.UpdateConversationModelRequest;
+import org.microsoft.qintelipass.request.UpdateConversationTitleRequest;
+import org.microsoft.qintelipass.response.ApiResponse;
+import org.microsoft.qintelipass.response.ConversationDetailResponse;
+import org.microsoft.qintelipass.response.ConversationMessageResponse;
+import org.microsoft.qintelipass.response.ConversationResponse;
+import org.microsoft.qintelipass.response.ConversationSummaryResponse;
+import org.microsoft.qintelipass.response.ConversationTurnResponse;
+import org.microsoft.qintelipass.services.ConversationService;
+import org.microsoft.qintelipass.services.ConversationTurnService;
+import org.microsoft.qintelipass.services.CurrentUserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
@@ -26,20 +35,16 @@ import java.util.List;
 // Controller only resolves the current user and request body; ownership is enforced in the service.
 public class ConversationController {
     private final ConversationService conversationService;
-    private final SecurityUtil currentUserService;
-    private final CensorService censorService;
-    private final UserService userService;
+    private final CurrentUserService currentUserService;
     private final ConversationTurnService conversationTurnService;
 
-    public ConversationController(ConversationService conversationService,
-                                  SecurityUtil currentUserService,
-                                  CensorService censorService,
-                                  UserService userService,
-                                  ConversationTurnService conversationTurnService) {
+    public ConversationController(
+            ConversationService conversationService,
+            CurrentUserService currentUserService,
+            ConversationTurnService conversationTurnService
+    ) {
         this.conversationService = conversationService;
         this.currentUserService = currentUserService;
-        this.censorService = censorService;
-        this.userService = userService;
         this.conversationTurnService = conversationTurnService;
     }
 
@@ -49,8 +54,8 @@ public class ConversationController {
             @Valid @RequestBody ConversationTurnRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
-        ConversationTurnResponse response = conversationTurnService.send(user, conversationId, request);
+        Long userId = currentUserService.requireUserId(httpRequest);
+        ConversationTurnResponse response = conversationTurnService.send(userId, conversationId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Turn completed.", response));
     }
 
@@ -59,8 +64,8 @@ public class ConversationController {
             @Valid @RequestBody ConversationTurnRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
-        ConversationTurnResponse response = conversationTurnService.sendNew(user, request);
+        Long userId = currentUserService.requireUserId(httpRequest);
+        ConversationTurnResponse response = conversationTurnService.sendNew(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.ok("Conversation created and turn completed.", response));
     }
 
@@ -69,8 +74,8 @@ public class ConversationController {
             @RequestBody(required = false) CreateConversationRequest request,
             HttpServletRequest httpRequest
     ) {
-        Long userId = currentUserService.getCurrentUserId();
-        ConversationResponse response = conversationService.createConversation(userService.getUserById(userId), request);
+        Long userId = currentUserService.requireUserId(httpRequest);
+        ConversationResponse response = conversationService.createConversation(userId, request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Conversation created.", response));
@@ -78,8 +83,8 @@ public class ConversationController {
 
     @PostMapping("/initial")
     public ResponseEntity<ApiResponse<ConversationResponse>> createInitialConversation(HttpServletRequest request) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
-        ConversationResponse response = conversationService.createInitialConversation(user);
+        Long userId = currentUserService.requireUserId(request);
+        ConversationResponse response = conversationService.createInitialConversation(userId);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Initial conversation created.", response));
@@ -91,7 +96,7 @@ public class ConversationController {
             @RequestParam(required = false) Integer limit,
             HttpServletRequest request
     ) {
-        Long userId = currentUserService.getCurrentUserId();
+        Long userId = currentUserService.requireUserId(request);
         return ApiResponse.ok(conversationService.listRecentConversations(userId, page, limit));
     }
 
@@ -100,8 +105,8 @@ public class ConversationController {
             @PathVariable Long conversationId,
             HttpServletRequest request
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
-        return ApiResponse.ok(conversationService.getConversation(user, conversationId));
+        Long userId = currentUserService.requireUserId(request);
+        return ApiResponse.ok(conversationService.getConversation(userId, conversationId));
     }
 
     @PostMapping("/{conversationId}/messages")
@@ -110,28 +115,8 @@ public class ConversationController {
             @RequestBody SaveConversationMessageRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
-        ConversationMessageResponse response = conversationService.saveMessage(user, conversationId, request);
-
-        // Safe fallback: run sensitive-word check on request content if available
-        try {
-            if (user != null) {
-                String inputContent = request != null ? request.getContent() : "";
-                String outputContent = response.content() != null ? response.content() : "";
-                censorService.checkAndRecord(
-                        user,
-                        user.getName(),
-                        user.getPhone(),
-                        user.getDepartment() != null ? user.getDepartment() : "",
-                        response.modelKey() != null ? response.modelKey() : "",
-                        inputContent,
-                        outputContent
-                );
-            }
-        } catch (Exception ignored) {
-            // never fail the message-save flow because of censor
-        }
-
+        Long userId = currentUserService.requireUserId(httpRequest);
+        ConversationMessageResponse response = conversationService.saveMessage(userId, conversationId, request);
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.ok("Message saved.", response));
@@ -143,8 +128,8 @@ public class ConversationController {
             @RequestBody UpdateConversationModelRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
-        return ApiResponse.ok(conversationService.updateModel(user, conversationId, request));
+        Long userId = currentUserService.requireUserId(httpRequest);
+        return ApiResponse.ok(conversationService.updateModel(userId, conversationId, request));
     }
 
     @PatchMapping("/{conversationId}/title")
@@ -153,7 +138,18 @@ public class ConversationController {
             @RequestBody UpdateConversationTitleRequest request,
             HttpServletRequest httpRequest
     ) {
-        User user = userService.getUserById(currentUserService.getCurrentUserId());
-        return ApiResponse.ok(conversationService.updateTitle(user, conversationId, request));
+        Long userId = currentUserService.requireUserId(httpRequest);
+        return ApiResponse.ok(conversationService.updateTitle(userId, conversationId, request));
+    }
+
+    /** Soft-delete only: the record and messages remain available to authorised administrators. */
+    @DeleteMapping("/{conversationId}")
+    public ResponseEntity<ApiResponse<Void>> deleteConversation(
+            @PathVariable Long conversationId,
+            HttpServletRequest httpRequest
+    ) {
+        Long userId = currentUserService.requireUserId(httpRequest);
+        conversationService.deleteConversation(userId, conversationId);
+        return ResponseEntity.ok(ApiResponse.ok("Conversation removed from your history.", null));
     }
 }

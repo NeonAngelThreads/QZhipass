@@ -1,12 +1,17 @@
 package org.microsoft.qintelipass.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Index;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
-import org.microsoft.qintelipass.util.Snowflake;
-import org.springframework.data.domain.Persistable;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
@@ -19,21 +24,23 @@ import java.time.LocalDateTime;
         indexes = {
                 @Index(name = "idx_conversations_user_id", columnList = "user_id"),
                 @Index(name = "idx_conversations_user_last_message", columnList = "user_id,last_message_at"),
+                @Index(name = "idx_conversations_user_visible_last_message", columnList = "user_id,user_deleted,last_message_at"),
                 @Index(name = "idx_conversations_model_key", columnList = "model_key")
         }
 )
-public class Conversation implements Persistable<Long> {
+// 对话归属使用 MySQL 用户表 user.id 的 BIGINT 编号。
+public class Conversation {
     public static final String DEFAULT_TITLE = "\u65b0\u5efa\u5bf9\u8bdd";
     public static final String STATUS_ACTIVE = "ACTIVE";
     public static final String STATUS_PENDING = "PENDING";
     public static final String STATUS_FAILED = "FAILED";
 
     @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
-    @JoinColumn(name = "user_id", nullable = false)
-    private User user;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(nullable = false, length = 120)
     private String title = DEFAULT_TITLE;
@@ -56,14 +63,23 @@ public class Conversation implements Persistable<Long> {
     @Column(name = "last_saved_at")
     private LocalDateTime lastSavedAt;
 
-    @Version
-    private Long version = 0L;
+    /**
+     * A user deletion is deliberately non-destructive.  Hidden conversations stay in MySQL
+     * for audit and administrator review, but are excluded from all user-facing reads.
+     */
+    @Column(name = "user_deleted", nullable = false)
+    private boolean userDeleted;
 
-    @CreationTimestamp
+    @Column(name = "user_deleted_at")
+    private LocalDateTime userDeletedAt;
+
+    @Version
+    @Column(nullable = false)
+    private Long version;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
 
-    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
@@ -72,35 +88,21 @@ public class Conversation implements Persistable<Long> {
 
     @PrePersist
     void prePersist() {
-        if (id == null) {
-            id = Snowflake.nextId();
-        }
+        LocalDateTime now = LocalDateTime.now();
+        createdAt = now;
+        updatedAt = now;
+        lastMessageAt = now;
+        lastSavedAt = now;
         if (!StringUtils.hasText(title)) {
             title = DEFAULT_TITLE;
         }
         if (!StringUtils.hasText(status)) {
             status = STATUS_ACTIVE;
         }
-        if (lastMessageAt == null) {
-            lastMessageAt = LocalDateTime.now();
-        }
-        if (lastSavedAt == null) {
-            lastSavedAt = LocalDateTime.now();
-        }
-        if (version == null) {
-            version = 0L;
-        }
     }
 
     @PreUpdate
     void preUpdate() {
-        if (lastMessageAt == null) {
-            lastMessageAt = LocalDateTime.now();
-        }
-    }
-
-    @Override
-    public boolean isNew() {
-        return version == null || version == 0L;
+        updatedAt = LocalDateTime.now();
     }
 }

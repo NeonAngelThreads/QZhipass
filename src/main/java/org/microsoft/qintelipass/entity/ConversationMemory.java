@@ -1,9 +1,19 @@
 package org.microsoft.qintelipass.entity;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.Lob;
+import jakarta.persistence.MapsId;
+import jakarta.persistence.OneToOne;
+import jakarta.persistence.PrePersist;
+import jakarta.persistence.PreUpdate;
+import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import lombok.Getter;
 import lombok.Setter;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.LocalDateTime;
 
@@ -31,11 +41,16 @@ public class ConversationMemory {
     @Column(name = "summarized_through_message_id")
     private Long summarizedThroughMessageId;
 
-    @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private LocalDateTime updatedAt;
 
     @Version
     @Column(nullable = false)
     private Long version;
+
+    @PrePersist
+    @PreUpdate
+    void touch() {
+        updatedAt = LocalDateTime.now();
+    }
 }

@@ -1,9 +1,9 @@
 import axios from 'axios'
-import { clearLoginInfo } from './session'
+import { clearLoginInfo, readLoginInfo } from './session'
 
 const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 120000,
+  timeout: 10000,
   withCredentials: true
 })
 
@@ -49,5 +49,13 @@ http.interceptors.response.use(
     return Promise.reject(error)
   }
 )
+
+http.interceptors.request.use(request => {
+  const accessToken = readLoginInfo()?.accessToken
+  if (accessToken && !request.headers.Authorization) {
+    request.headers.Authorization = `Bearer ${accessToken}`
+  }
+  return request
+})
 
 export default http

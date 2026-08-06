@@ -1,8 +1,7 @@
 package org.microsoft.qintelipass.repository;
 
-import org.microsoft.qintelipass.enums.ConversationMessageRole;
-import org.microsoft.qintelipass.enums.ConversationMessageStatus;
 import org.microsoft.qintelipass.entity.ConversationMessage;
+import org.microsoft.qintelipass.entity.ConversationMessageRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -27,7 +26,7 @@ public interface ConversationMessageRepository extends JpaRepository<Conversatio
 
     List<ConversationMessage> findByConversation_IdAndStatusOrderByCreatedAtAscIdAsc(
             Long conversationId,
-            ConversationMessageStatus status
+            org.microsoft.qintelipass.entity.ConversationMessageStatus status
     );
 
     Optional<ConversationMessage> findFirstByConversation_IdAndRequestIdAndRole(
