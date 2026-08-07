@@ -8,9 +8,9 @@ import org.microsoft.qintelipass.enums.UserStatus;
 import org.microsoft.qintelipass.repository.CensorAlertRepository;
 import org.microsoft.qintelipass.repository.UserFreezeLogRepository;
 import org.microsoft.qintelipass.repository.UserRepository;
+import org.microsoft.qintelipass.services.TokenUsageService;
 import org.microsoft.qintelipass.services.UserFreezeService;
 import org.microsoft.qintelipass.services.UserService;
-import org.microsoft.qintelipass.services.agent.TokenService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -26,14 +26,14 @@ public class UserFreezeServiceImpl implements UserFreezeService {
     private final UserService userService;
     private final UserFreezeLogRepository freezeLogRepository;
     private final CensorAlertRepository censorAlertRepository;
-    private final TokenService tokenService;
+    private final TokenUsageService tokenService;
 
     public UserFreezeServiceImpl(
             UserRepository userRepository,
             UserService userService,
             UserFreezeLogRepository freezeLogRepository,
             CensorAlertRepository censorAlertRepository,
-            TokenService tokenService
+            TokenUsageService tokenService
     ) {
         this.userRepository = userRepository;
         this.userService = userService;

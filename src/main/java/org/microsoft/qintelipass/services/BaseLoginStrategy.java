@@ -1,4 +1,4 @@
-package org.microsoft.qintelipass.services.logins;
+package org.microsoft.qintelipass.services;
 
 import lombok.extern.slf4j.Slf4j;
 import org.microsoft.qintelipass.ILoginStrategy;
@@ -6,10 +6,8 @@ import org.microsoft.qintelipass.dtos.response.ResponseBody;
 import org.microsoft.qintelipass.entity.User;
 import org.microsoft.qintelipass.exceptions.LoginFailedException;
 import org.microsoft.qintelipass.exceptions.PasswordIncorrectException;
-import org.microsoft.qintelipass.exceptions.UserNotFoundException;
 import org.microsoft.qintelipass.services.redis.LoginAttemptService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 
 import java.time.Duration;
 import java.util.Map;

@@ -1,5 +1,21 @@
-import http, { getErrorMessage } from './http'
+// ============================================================
+//  Token 配额管理 · 数据层（管理员端）
+//  —— 默认 USE_MOCK = true：用内置演示数据，复制即跑、零配置。
+//
+//  【接后端，只改下面 3 步，页面代码不用动】
+//   1) 把 USE_MOCK 改成 false
+//   2) 把 BASE_URL 改成后端地址，例如 'http://localhost:8080'
+//      （若 vite 已配代理，保持 '' 空字符串即可，最稳）
+//   3) 确认登录后 token 存在 localStorage 的哪个 key：
+//      下面默认读 'token'，不对就改这个字符串。
+//      鉴权统一走 Authorization: Bearer <token>（后端 SecurityUtil 解析）。
+// ============================================================
 
+const USE_MOCK = true
+const BASE_URL = '' // 真后端地址；用 vite 代理时留空
+const TOKEN_KEY = 'token'
+
+// ---------- 归一化后的类型（页面只认这些，不关心后端 rawData/data 差异） ----------
 export interface EmployeeRow {
   id: string
   name: string
@@ -25,6 +41,7 @@ export interface Dashboard {
 
 export interface QuotaDetail {
   userId: string
+  userName: string
   effectiveQuota: number
   globalDefaultQuota: number
   isPersonalized?: boolean
