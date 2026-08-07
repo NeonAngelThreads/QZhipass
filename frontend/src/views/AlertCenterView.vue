@@ -20,214 +20,26 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import {
+  createAlertRule,
+  deleteAlertRule,
+  listAlerts,
+  listAlertRules,
+  markAlertHandled,
+  updateAlertRule,
+  type AlertRecordPayload,
+  type AlertRulePayload
+} from '../api/admin'
+import { getErrorMessage } from '../api/http'
 
 type AlertStatus = 'pending' | 'handled'
 type RulePreset = '1' | '7' | 'custom'
 
-interface AlertContext {
-  time: string
-  keyword: string
-  before: string
-  hit: string
-  after: string
-}
+type AlertRecord = AlertRecordPayload
+type AlertRule = AlertRulePayload
 
-interface AlertRecord {
-  id: number
-  employeeId: string
-  name: string
-  department: string
-  position: string
-  triggeredAt: string
-  ruleName: string
-  periodDays: number
-  threshold: number
-  triggerCount: number
-  currentCount: number
-  keywords: string[]
-  status: AlertStatus
-  noticeSentAt: string
-  email: string
-  handledAt?: string
-  handledBy?: string
-  contexts: AlertContext[]
-}
-
-interface AlertRule {
-  id: number
-  name: string
-  periodDays: number
-  threshold: number
-  enabled: boolean
-  isDefault: boolean
-  updatedAt: string
-  createdBy: string
-}
-
-const alerts = ref<AlertRecord[]>([
-  {
-    id: 20260722001,
-    employeeId: 'E2024018',
-    name: '张明',
-    department: '财务部',
-    position: '资金专员',
-    triggeredAt: '2026-07-22 10:32:18',
-    ruleName: '系统默认告警规则',
-    periodDays: 1,
-    threshold: 3,
-    triggerCount: 4,
-    currentCount: 4,
-    keywords: ['合同金额', '银行卡号', '内部报价'],
-    status: 'pending',
-    noticeSentAt: '2026-07-22 10:32:19',
-    email: 'security-admin@qizhitong.cn',
-    contexts: [
-      { time: '09:16', keyword: '合同金额', before: '请把这份采购合同的', hit: '合同金额', after: '和付款节点整理成表格。' },
-      { time: '10:04', keyword: '银行卡号', before: '收款方的', hit: '银行卡号', after: '需要在本周五前复核。' },
-      { time: '10:32', keyword: '内部报价', before: '附件包含客户的', hit: '内部报价', after: '，请不要对外发送。' },
-    ],
-  },
-  {
-    id: 20260722002,
-    employeeId: 'E2023036',
-    name: '王芳',
-    department: '销售部',
-    position: '大客户经理',
-    triggeredAt: '2026-07-22 11:08:45',
-    ruleName: '系统默认告警规则',
-    periodDays: 1,
-    threshold: 3,
-    triggerCount: 3,
-    currentCount: 3,
-    keywords: ['客户名单', '底价'],
-    status: 'pending',
-    noticeSentAt: '2026-07-22 11:08:46',
-    email: 'security-admin@qizhitong.cn',
-    contexts: [
-      { time: '10:43', keyword: '客户名单', before: '帮我分析一下这批', hit: '客户名单', after: '的行业分布。' },
-      { time: '10:56', keyword: '底价', before: '这次投标的', hit: '底价', after: '暂定为项目预算的八成。' },
-      { time: '11:08', keyword: '客户名单', before: '请根据', hit: '客户名单', after: '生成本周跟进计划。' },
-    ],
-  },
-  {
-    id: 20260722003,
-    employeeId: 'E2025052',
-    name: '陈思远',
-    department: '技术部',
-    position: '后端工程师',
-    triggeredAt: '2026-07-22 13:46:03',
-    ruleName: '系统默认告警规则',
-    periodDays: 1,
-    threshold: 3,
-    triggerCount: 5,
-    currentCount: 5,
-    keywords: ['生产密钥', '数据库密码'],
-    status: 'pending',
-    noticeSentAt: '2026-07-22 13:46:04',
-    email: 'security-admin@qizhitong.cn',
-    contexts: [
-      { time: '11:27', keyword: '生产密钥', before: '这段配置里包含', hit: '生产密钥', after: '，帮我检查格式。' },
-      { time: '12:18', keyword: '数据库密码', before: '连接失败可能是', hit: '数据库密码', after: '已经过期。' },
-      { time: '13:46', keyword: '生产密钥', before: '请比较两份', hit: '生产密钥', after: '配置的差异。' },
-    ],
-  },
-  {
-    id: 20260721004,
-    employeeId: 'E2022109',
-    name: '李华',
-    department: '技术部',
-    position: '测试工程师',
-    triggeredAt: '2026-07-21 16:20:11',
-    ruleName: '系统默认告警规则',
-    periodDays: 1,
-    threshold: 3,
-    triggerCount: 3,
-    currentCount: 0,
-    keywords: ['管理员口令'],
-    status: 'handled',
-    noticeSentAt: '2026-07-21 16:20:12',
-    email: 'security-admin@qizhitong.cn',
-    handledAt: '2026-07-21 16:45:09',
-    handledBy: '管理员',
-    contexts: [
-      { time: '14:08', keyword: '管理员口令', before: '测试环境的', hit: '管理员口令', after: '需要重新初始化。' },
-      { time: '15:11', keyword: '管理员口令', before: '自动化脚本读取不到', hit: '管理员口令', after: '变量。' },
-      { time: '16:20', keyword: '管理员口令', before: '日志中打印了', hit: '管理员口令', after: '字段，请帮忙脱敏。' },
-    ],
-  },
-  {
-    id: 20260720005,
-    employeeId: 'E2023058',
-    name: '赵雪',
-    department: '人力资源部',
-    position: '薪酬专员',
-    triggeredAt: '2026-07-20 09:54:30',
-    ruleName: '重点岗位高频告警',
-    periodDays: 7,
-    threshold: 8,
-    triggerCount: 8,
-    currentCount: 0,
-    keywords: ['员工薪资', '身份证号'],
-    status: 'handled',
-    noticeSentAt: '2026-07-20 09:54:31',
-    email: 'security-admin@qizhitong.cn',
-    handledAt: '2026-07-20 10:26:44',
-    handledBy: '管理员',
-    contexts: [
-      { time: '09:12', keyword: '员工薪资', before: '请汇总本月的', hit: '员工薪资', after: '异常变动。' },
-      { time: '09:31', keyword: '身份证号', before: '表格中包含完整', hit: '身份证号', after: '，导出前需要脱敏。' },
-      { time: '09:54', keyword: '员工薪资', before: '这份', hit: '员工薪资', after: '明细仅用于内部核对。' },
-    ],
-  },
-  {
-    id: 20260718006,
-    employeeId: 'E2024027',
-    name: '周宁',
-    department: '法务部',
-    position: '法务经理',
-    triggeredAt: '2026-07-18 15:37:22',
-    ruleName: '系统默认告警规则',
-    periodDays: 1,
-    threshold: 3,
-    triggerCount: 4,
-    currentCount: 0,
-    keywords: ['未公开条款', '诉讼策略'],
-    status: 'handled',
-    noticeSentAt: '2026-07-18 15:37:23',
-    email: 'security-admin@qizhitong.cn',
-    handledAt: '2026-07-18 16:02:18',
-    handledBy: '管理员',
-    contexts: [
-      { time: '11:09', keyword: '未公开条款', before: '协议中有几项', hit: '未公开条款', after: '需要单独复核。' },
-      { time: '13:24', keyword: '诉讼策略', before: '请根据目前的', hit: '诉讼策略', after: '补充风险说明。' },
-      { time: '15:37', keyword: '未公开条款', before: '不要把这段', hit: '未公开条款', after: '放入对外版本。' },
-    ],
-  },
-])
-
-const rules = ref<AlertRule[]>([
-  {
-    id: 1,
-    name: '系统默认告警规则',
-    periodDays: 1,
-    threshold: 3,
-    enabled: true,
-    isDefault: true,
-    updatedAt: '2026-07-01 09:00',
-    createdBy: '系统内置',
-  },
-  {
-    id: 2,
-    name: '重点岗位高频告警',
-    periodDays: 7,
-    threshold: 8,
-    enabled: true,
-    isDefault: false,
-    updatedAt: '2026-07-18 14:20',
-    createdBy: '管理员',
-  },
-])
-
+const alerts = ref<AlertRecord[]>([])
+const rules = ref<AlertRule[]>([])
 const activeSection = ref<'records' | 'rules'>('records')
 const sidebarCollapsed = ref(false)
 const showRealtimeNotice = ref(false)
@@ -246,7 +58,10 @@ const filters = reactive({
 
 const departments = computed(() => [...new Set(alerts.value.map(item => item.department))])
 const pendingAlerts = computed(() => alerts.value.filter(item => item.status === 'pending'))
-const todayAlerts = computed(() => alerts.value.filter(item => item.triggeredAt.startsWith('2026-07-22')))
+const todayAlerts = computed(() => {
+  const today = new Date().toISOString().slice(0, 10)
+  return alerts.value.filter(item => item.triggeredAt?.startsWith(today))
+})
 const enabledRules = computed(() => rules.value.filter(item => item.enabled).length)
 
 const filteredAlerts = computed(() => {
@@ -289,13 +104,14 @@ function openDetail(record: AlertRecord) {
   showRealtimeNotice.value = false
 }
 
-function markHandled(record: AlertRecord) {
+async function markHandled(record: AlertRecord) {
   if (record.status === 'handled') return
-  record.status = 'handled'
-  record.currentCount = 0
-  record.handledAt = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')
-  record.handledBy = '管理员'
-  ElMessage.success(`已标记为已处理，${record.name}的敏感词触发次数已清零`)
+  try {
+    Object.assign(record, await markAlertHandled(record.id))
+    ElMessage.success(`已标记为已处理，${record.name}的敏感词触发次数已清零`)
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '告警处理失败'))
+  }
 }
 
 const ruleDialogVisible = ref(false)
@@ -333,7 +149,7 @@ function openEditRule(rule: AlertRule) {
   ruleDialogVisible.value = true
 }
 
-function saveRule() {
+async function saveRule() {
   const name = ruleForm.name.trim()
   const days = actualPeriodDays.value
   const threshold = Number(ruleForm.threshold)
@@ -346,30 +162,33 @@ function saveRule() {
     return
   }
 
-  if (editingRuleId.value !== null) {
-    const target = rules.value.find(item => item.id === editingRuleId.value)
-    if (target) {
-      target.name = name
-      target.periodDays = days
-      target.threshold = threshold
-      target.enabled = ruleForm.enabled
-      target.updatedAt = new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-')
+  try {
+    if (editingRuleId.value !== null) {
+      const updated = await updateAlertRule(editingRuleId.value, {
+        name,
+        periodDays: days,
+        threshold,
+        enabled: ruleForm.enabled
+      })
+      const index = rules.value.findIndex(item => item.id === editingRuleId.value)
+      if (index >= 0) {
+        rules.value[index] = updated
+      }
+      ElMessage.success('告警规则已更新')
+    } else {
+      const created = await createAlertRule({
+        name,
+        periodDays: days,
+        threshold,
+        enabled: ruleForm.enabled
+      })
+      rules.value.unshift(created)
+      ElMessage.success('告警规则已新增')
     }
-    ElMessage.success('告警规则已更新')
-  } else {
-    rules.value.unshift({
-      id: Date.now(),
-      name,
-      periodDays: days,
-      threshold,
-      enabled: ruleForm.enabled,
-      isDefault: false,
-      updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'),
-      createdBy: '管理员',
-    })
-    ElMessage.success('告警规则已新增')
+    ruleDialogVisible.value = false
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '告警规则保存失败'))
   }
-  ruleDialogVisible.value = false
 }
 
 async function deleteRule(rule: AlertRule) {
@@ -382,17 +201,29 @@ async function deleteRule(rule: AlertRule) {
       confirmButtonText: '确定删除',
       cancelButtonText: '取消',
     })
+    await deleteAlertRule(rule.id)
     rules.value = rules.value.filter(item => item.id !== rule.id)
     ElMessage.success('告警规则已删除')
-  } catch {
-    // The user cancelled the confirmation.
+  } catch (error) {
+    if (error !== 'cancel' && error !== 'close') {
+      ElMessage.error(getErrorMessage(error, '告警规则删除失败'))
+    }
   }
 }
 
-onMounted(() => {
-  noticeTimer = window.setTimeout(() => {
-    showRealtimeNotice.value = true
-  }, 650)
+onMounted(async () => {
+  try {
+    const [alertData, ruleData] = await Promise.all([listAlerts(), listAlertRules()])
+    alerts.value = alertData
+    rules.value = ruleData
+    if (pendingAlerts.value.length > 0) {
+      noticeTimer = window.setTimeout(() => {
+        showRealtimeNotice.value = true
+      }, 650)
+    }
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '告警中心数据加载失败'))
+  }
 })
 
 onBeforeUnmount(() => {

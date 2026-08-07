@@ -12,16 +12,31 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import http, { getErrorMessage } from '../api/http'
+import { getErrorMessage } from '../api/http'
+import {
+  createAgent as createAgentRequest,
+  deleteAgent as deleteAgentRequest,
+  listAgents,
+  type AgentPayload
+} from '../api/agent'
 
 /* ================================================================
    类型定义
    ================================================================ */
 interface AgentItem {
-  id: number
+  id: string
   title: string
   prompt: string
   createdAt?: string
+}
+
+function toAgentItem(agent: AgentPayload): AgentItem {
+  return {
+    id: agent.id,
+    title: agent.name,
+    prompt: agent.prompt,
+    createdAt: agent.createdAt ?? undefined
+  }
 }
 
 /* ================================================================
@@ -69,27 +84,17 @@ async function createAgent() {
     return
   }
 
-  const newAgent = {
-  id: Date.now(),
-  title: agentForm.value.title,
-  prompt: agentForm.value.prompt,
-  createdAt: new Date().toLocaleDateString()
-}
-
-if (agentForm.value.title === '失败测试') {
-  ElMessage.error('创建失败，请稍后重试')
-  return
-}
-agents.value.push(newAgent)
-
-localStorage.setItem(
-    'admin-agents',
-    JSON.stringify(agents.value)
-  )
-
-  ElMessage.success('创建成功')
-
-  closeDialog()
+  try {
+    const created = await createAgentRequest(
+      agentForm.value.title.trim(),
+      agentForm.value.prompt.trim()
+    )
+    agents.value.unshift(toAgentItem(created))
+    ElMessage.success('创建成功')
+    closeDialog()
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '创建失败，请稍后重试'))
+  }
 }
 
 
@@ -124,24 +129,14 @@ async function doDeactivate() {
   const uid = deactivateTarget.value?.id
   if (!uid) return
 
-  const adminAgents = JSON.parse(
-  localStorage.getItem('admin-agents') || '[]'
-)
-
-const newAgents = adminAgents.filter(
-  (item:any) => item.id !== uid
-)
-
-localStorage.setItem(
-  'admin-agents',
-  JSON.stringify(newAgents)
-)
-
-ElMessage.success('删除成功')
-
-closeDeactivateModal()
-
-fetchAgents()
+  try {
+    await deleteAgentRequest(uid)
+    agents.value = agents.value.filter(item => item.id !== uid)
+    ElMessage.success('删除成功')
+    closeDeactivateModal()
+  } catch (error) {
+    ElMessage.error(getErrorMessage(error, '删除失败，请稍后重试'))
+  }
 }
 
 /* ================================================================
@@ -183,15 +178,11 @@ async function fetchAgents() {
 
   try {
 
-    const localAgents = JSON.parse(
-      localStorage.getItem('admin-agents') || '[]'
-    )
-
-    agents.value = localAgents
+    agents.value = (await listAgents()).map(toAgentItem)
 
   } catch (error) {
 
-    ElMessage.error('读取Agent失败')
+    ElMessage.error(getErrorMessage(error, '读取Agent失败'))
 
   } finally {
 

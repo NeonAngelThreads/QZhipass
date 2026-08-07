@@ -1,4 +1,4 @@
-import axios from 'axios'
+import http, { getErrorMessage } from './http'
 
 /**
  * 热键配置 API（对齐 Hotkey.md）
@@ -31,28 +31,8 @@ export interface ApiErrorBody {
   data?: null
 }
 
-const http = axios.create({
-  baseURL: '/api',
-  timeout: 15000
-})
-
-http.interceptors.request.use((config) => {
-  const token =
-    localStorage.getItem('access_token') ||
-    localStorage.getItem('token')
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`
-  }
-  return config
-})
-
 function unwrapError(err: unknown): string {
-  const ax = err as { response?: { data?: ApiErrorBody; status?: number }; message?: string }
-  return (
-    ax?.response?.data?.message ||
-    ax?.message ||
-    '请求失败'
-  )
+  return getErrorMessage(err, '请求失败')
 }
 
 /** 1. 热键 id 注册表：{ "1": "#", "20": "ESC", ... } */

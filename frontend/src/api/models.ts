@@ -1,5 +1,4 @@
 import http from './http'
-import { readLoginInfo } from './session'
 
 interface ApiResponse<T> {
   success?: boolean
@@ -24,18 +23,7 @@ export interface ModelResponse {
  * GET /api/v1/models/available
  */
 export async function listAvailableModels(): Promise<ModelResponse[]> {
-  const accessToken = readLoginInfo()?.accessToken
-
-  const response = await http.get<ApiResponse<ModelResponse[]>>(
-    '/v1/models/available',
-    {
-      headers: accessToken
-        ? {
-            Authorization: `Bearer ${accessToken}`
-          }
-        : undefined
-    }
-  )
+  const response = await http.get<ApiResponse<ModelResponse[]>>('/v1/models/available')
 
   const body = response.data
 

@@ -12,20 +12,17 @@ import {
   Warning,
 } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import http, { getErrorMessage } from '../api/http'
+import { getErrorMessage } from '../api/http'
+import {
+  deactivateAdminUser,
+  listAdminUsers,
+  type AdminUserItem
+} from '../api/admin'
 
 /* ================================================================
    类型定义
    ================================================================ */
-interface UserItem {
-  id: number
-  name: string
-  phone: string
-  wechatOpenId?: string
-  status: 'active' | 'cancelled'
-  lastLoginAt?: string
-  createdAt?: string
-}
+type UserItem = AdminUserItem
 
 /* ================================================================
    侧边栏
@@ -67,7 +64,7 @@ async function doDeactivate() {
   if (!uid) return
 
   try {
-    await http.delete(`/api/admin/users/${uid}`)
+    await deactivateAdminUser(uid)
     ElMessage.success('用户已注销')
     closeDeactivateModal()
     fetchUsers()
@@ -103,14 +100,25 @@ function handleSearch() {
   currentPage.value = 1
 }
 
+function statusClass(status: string) {
+  if (status === 'CANCELLED') return 'cancelled'
+  if (status === 'FROZEN') return 'frozen'
+  return 'active-tag'
+}
+
+function statusText(status: string) {
+  if (status === 'CANCELLED') return '已注销'
+  if (status === 'FROZEN') return '已冻结'
+  return '正常'
+}
+
 /* ================================================================
    数据加载
    ================================================================ */
 async function fetchUsers() {
   loading.value = true
   try {
-    const res = await http.get<UserItem[]>('/api/admin/users')
-    users.value = res.data
+    users.value = await listAdminUsers()
   } catch (error) {
     ElMessage.error(getErrorMessage(error, '获取用户列表失败'))
   } finally {
@@ -217,8 +225,8 @@ onMounted(() => {
               </el-table-column>
               <el-table-column label="状态" width="110" align="center">
                 <template #default="{ row }">
-                  <span class="status-tag" :class="row.status === 'cancelled' ? 'cancelled' : 'active-tag'">
-                    {{ row.status === 'cancelled' ? '已注销' : '正常' }}
+                  <span class="status-tag" :class="statusClass(row.status)">
+                    {{ statusText(row.status) }}
                   </span>
                 </template>
               </el-table-column>
@@ -229,7 +237,7 @@ onMounted(() => {
               </el-table-column>
               <el-table-column label="操作" width="120" align="center" fixed="right">
                 <template #default="{ row }">
-                  <template v-if="row.status === 'cancelled'">
+                  <template v-if="row.status === 'CANCELLED'">
                     <span class="opacity-50" style="color:#9ca5b2;font-size:12px">已注销</span>
                   </template>
                   <template v-else>
@@ -450,6 +458,8 @@ onMounted(() => {
 .status-tag.active-tag::before { background: #2aa870; }
 .status-tag.cancelled { color: #a0a8b5; background: #f3f4f6; border: 1px solid #e5e7eb; }
 .status-tag.cancelled::before { background: #9ca3af; }
+.status-tag.frozen { color: #b54708; background: #fffaeb; border: 1px solid #fedf89; }
+.status-tag.frozen::before { background: #f79009; }
 
 .link-button { padding: 3px 5px; color: var(--blue); font-size: 12px; background: transparent; border: 0; cursor: pointer; }
 .link-button:hover { text-decoration: underline; }

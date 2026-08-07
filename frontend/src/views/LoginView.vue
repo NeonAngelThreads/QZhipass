@@ -4,8 +4,10 @@ import {useRoute, useRouter} from 'vue-router'
 import {ElMessage} from 'element-plus'
 import {Lock, Message, Phone, User} from '@element-plus/icons-vue'
 import BrandLogo from '../components/BrandLogo.vue'
-import {isValidMobile, sendSmsCode} from '../api/auth'
+import {isValidEmail, isValidMobile, sendSmsCode} from '../api/auth'
 import {useAuthStore} from '../stores/auth'
+import {resolvePostLoginPath} from '../router/access'
+import type {UserRole} from '../api/session'
 // 注销用户弹窗处理：检测到 cancelled 错误时弹出注销提示，其他错误抛出交由原逻辑处理
 import {handleLoginError} from '../utils/cancelledUserHandler'
 
@@ -13,7 +15,7 @@ const route = useRoute()
 const router = useRouter()
 const authStore = useAuthStore()
 
-const loginMode = ref<'password' | 'sms'>('password')
+const loginMode = ref<'password' | 'sms' | 'email'>('password')
 const submitting = ref(false)
 const smsSending = ref(false)
 const countdown = ref(0)
@@ -33,14 +35,23 @@ const smsForm = reactive({
   smsCode: ''
 })
 
+const emailForm = reactive({
+  email: '',
+  password: ''
+})
+
 const normalizedPasswordMobile = computed(() => passwordForm.mobile.trim())
 const normalizedSmsMobile = computed(() => smsForm.mobile.trim())
+const normalizedEmail = computed(() => emailForm.email.trim())
 const canSubmitPassword = computed(
   () => isValidMobile(normalizedPasswordMobile.value) && passwordForm.password.length > 0 && !submitting.value
 )
 const canSendSms = computed(() => isValidMobile(normalizedSmsMobile.value) && !smsSending.value && countdown.value === 0)
 const canSubmitSms = computed(
   () => isValidMobile(normalizedSmsMobile.value) && smsForm.smsCode.trim().length === 6 && !submitting.value
+)
+const canSubmitEmail = computed(
+  () => isValidEmail(normalizedEmail.value) && emailForm.password.length > 0 && !submitting.value
 )
 const smsCodeButtonText = computed(() => (countdown.value > 0 ? `${countdown.value}s` : '获取验证码'))
 
@@ -85,9 +96,9 @@ function friendlySendError(error: unknown): string {
   return '验证码发送失败，请稍后重试'
 }
 
-async function redirectAfterLogin() {
-  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/chat'
-  await router.push(redirect)
+async function redirectAfterLogin(role: UserRole) {
+  const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : undefined
+  await router.replace(resolvePostLoginPath(role, redirect))
 }
 
 async function handlePasswordLogin() {
@@ -98,8 +109,8 @@ async function handlePasswordLogin() {
 
   submitting.value = true
   try {
-    await authStore.passwordLogin(normalizedPasswordMobile.value, passwordForm.password)
-    await redirectAfterLogin()
+    const loginInfo = await authStore.passwordLogin(normalizedPasswordMobile.value, passwordForm.password)
+    await redirectAfterLogin(loginInfo.role)
   } catch (error) {
     try {
       handleLoginError(error)
@@ -160,8 +171,8 @@ async function handleSmsLogin() {
   submitting.value = true
   smsError.value = null
   try {
-    await authStore.smsLogin(normalizedSmsMobile.value, smsForm.smsCode.trim())
-    await redirectAfterLogin()
+    const loginInfo = await authStore.smsLogin(normalizedSmsMobile.value, smsForm.smsCode.trim())
+    await redirectAfterLogin(loginInfo.role)
   } catch (error) {
     try {
       handleLoginError(error)
@@ -170,6 +181,23 @@ async function handleSmsLogin() {
       smsError.value = mapSmsLoginError(error)
       smsForm.smsCode = ''
     }
+  } finally {
+    submitting.value = false
+  }
+}
+
+async function handleEmailLogin() {
+  if (!canSubmitEmail.value) {
+    ElMessage.warning('请输入有效邮箱和密码')
+    return
+  }
+
+  submitting.value = true
+  try {
+    const loginInfo = await authStore.emailLogin(normalizedEmail.value, emailForm.password)
+    await redirectAfterLogin(loginInfo.role)
+  } catch (error) {
+    ElMessage.error(error instanceof Error ? error.message : '邮箱或密码登录失败')
   } finally {
     submitting.value = false
   }
@@ -199,7 +227,7 @@ onBeforeUnmount(() => {
         <header class="login-header">
           <BrandLogo tone="dark" size="sm" />
           <h2>登录企智通</h2>
-          <p>使用手机号登录您的账号</p>
+          <p>{{ loginMode === 'email' ? '使用邮箱登录您的账号' : '使用手机号登录您的账号' }}</p>
         </header>
 
         <div class="mode-switch" aria-label="登录方式">
@@ -208,6 +236,9 @@ onBeforeUnmount(() => {
           </button>
           <button type="button" :class="{ active: loginMode === 'sms' }" @click="loginMode = 'sms'">
             验证码登录
+          </button>
+          <button type="button" :class="{ active: loginMode === 'email' }" @click="loginMode = 'email'">
+            邮箱登录
           </button>
         </div>
 
@@ -250,7 +281,7 @@ onBeforeUnmount(() => {
           </el-button>
         </el-form>
 
-        <el-form v-else class="login-form" @submit.prevent="handleSmsLogin">
+        <el-form v-else-if="loginMode === 'sms'" class="login-form" @submit.prevent="handleSmsLogin">
           <label class="field-label" for="sms-mobile">手机号</label>
           <el-input
             id="sms-mobile"
@@ -303,6 +334,51 @@ onBeforeUnmount(() => {
             color="#002fa7"
             data-testid="sms-login-button"
             :disabled="!canSubmitSms"
+            :loading="submitting"
+            native-type="submit"
+            size="large"
+            type="primary"
+          >
+            登录
+          </el-button>
+        </el-form>
+
+        <el-form
+          v-else
+          class="login-form"
+          @keydown.enter.prevent="handleEmailLogin"
+          @submit.prevent="handleEmailLogin"
+        >
+          <label class="field-label" for="email-value">邮箱</label>
+          <el-input
+            id="email-value"
+            v-model="emailForm.email"
+            :prefix-icon="Message"
+            autocomplete="username"
+            clearable
+            inputmode="email"
+            placeholder="请输入邮箱"
+            size="large"
+            type="email"
+          />
+
+          <label class="field-label" for="email-password">密码</label>
+          <el-input
+            id="email-password"
+            v-model="emailForm.password"
+            :prefix-icon="Lock"
+            autocomplete="current-password"
+            placeholder="请输入密码"
+            show-password
+            size="large"
+            type="password"
+          />
+
+          <el-button
+            class="login-button"
+            color="#002fa7"
+            data-testid="email-login-button"
+            :disabled="!canSubmitEmail"
             :loading="submitting"
             native-type="submit"
             size="large"
@@ -416,7 +492,7 @@ onBeforeUnmount(() => {
 
 .mode-switch {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
   margin-bottom: 24px;
   padding: 4px;
@@ -560,8 +636,9 @@ onBeforeUnmount(() => {
     font-size: 30px;
   }
 
-  .mode-switch {
-    grid-template-columns: minmax(0, 1fr);
+  .mode-switch button {
+    padding-inline: 4px;
+    font-size: 13px;
   }
 
   .sms-row {

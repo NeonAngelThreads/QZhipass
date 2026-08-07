@@ -77,19 +77,10 @@
 
 <script setup lang="ts">
 import {onMounted, ref} from 'vue'
+import {listSecurityLogs, type SecurityLogRecord} from '../api/admin'
+import {getErrorMessage} from '../api/http'
 
-interface CensorRecord {
-  id: number
-  userId: number
-  username: string | null
-  phone: string | null
-  department: string | null
-  modelName: string | null
-  hitKeywords: string | null
-  createdAt: string
-}
-
-const records = ref<CensorRecord[]>([])
+const records = ref<SecurityLogRecord[]>([])
 const loading = ref(false)
 const error = ref('')
 const searchQuery = ref('')
@@ -115,29 +106,13 @@ async function fetchRecords(page: number) {
   loading.value = true
   error.value = ''
   try {
-    const params = new URLSearchParams()
-    if (searchQuery.value.trim()) {
-      params.set('q', searchQuery.value.trim())
-    }
-    params.set('page', String(page))
-    params.set('size', '20')
-
-    const resp = await fetch(`/api/admin/security-logs?${params.toString()}`)
-    if (!resp.ok) {
-      if (resp.status === 403) {
-        error.value = '无权限访问，仅管理员可查看。'
-        return
-      }
-      throw new Error(`请求失败 (${resp.status})`)
-    }
-    const json = await resp.json()
-    const data = json.data || json.payload
-    records.value = data?.content ?? []
-    totalPages.value = data?.totalPages ?? 1
-    totalElements.value = data?.totalElements ?? 0
-    currentPage.value = data?.number ?? 0
-  } catch (e: any) {
-    error.value = e.message || '加载失败'
+    const data = await listSecurityLogs(searchQuery.value, page)
+    records.value = data.content ?? []
+    totalPages.value = data.totalPages ?? 1
+    totalElements.value = data.totalElements ?? 0
+    currentPage.value = data.number ?? 0
+  } catch (e) {
+    error.value = getErrorMessage(e, '加载失败')
   } finally {
     loading.value = false
   }
