@@ -25,7 +25,7 @@ public class AuthenticatedUser implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return role != null
-                ? List.of(new SimpleGrantedAuthority("ROLE_" + role.name()))
+                ? List.of(new SimpleGrantedAuthority(role.getName()))
                 : Collections.emptyList();
     }
     @Override

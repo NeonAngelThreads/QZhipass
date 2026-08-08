@@ -58,8 +58,9 @@ public class SecurityUtil {
 
     public static boolean isAdmin() {
         AuthenticatedUser user = getCurrentAuthenticatedUser();
+        log.info("User:{}", user);
         return user != null && user.getRole() != null
-                && "ADMIN".equals(user.getRole().name());
+                && "ADMIN".equals(user.getRole().getName());
     }
 
     public static void requireAdmin() {

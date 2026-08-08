@@ -62,9 +62,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                         log.warn("JWT token valid but user not found: username= {}", username);
                         throw new SecurityException("JWT token valid but user not found: username="+ username);
                     } else {
-                        UserRole role = adminProperties.isAdmin(user.getPhone())
-                                ? UserRole.ADMIN
-                                : UserRole.USER;
+                        UserRole role = user.getRole();
 
                         AuthenticatedUser authenticatedUser = AuthenticatedUser.builder()
                                 .userId(user.getId())

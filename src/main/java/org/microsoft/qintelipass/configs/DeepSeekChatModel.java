@@ -94,11 +94,16 @@ public class DeepSeekChatModel implements ChatModel, StreamingChatModel {
                 model, messages, temperature, maxTokens, true
         );
 
+        // The WebClient SSE decoder already strips the "data: " prefix and emits
+        // the JSON payload (or the "[DONE]" sentinel) directly, so we must NOT
+        // filter on startsWith("data: ") here — that would drop every chunk and
+        // make the stream appear to close without producing any output.
         return apiClient.chatCompletionStream(request)
-                .filter(line -> line.startsWith("data: ") && !line.contains("[DONE]"))
-                .map(line -> {
-                    String json = line.substring(6).trim(); // strip "data: " prefix
-                    if (json.isEmpty()) return new ChatResponse(Collections.emptyList());
+                .filter(json -> !"[DONE]".equals(json.trim()))
+                .map(json -> {
+                    if (json.isBlank()) {
+                        return new ChatResponse(Collections.emptyList());
+                    }
                     try {
                         var chunk = MAPPER.readValue(json, DeepSeekApiClient.ChatCompletionResponse.class);
                         List<Generation> generations = new ArrayList<>();

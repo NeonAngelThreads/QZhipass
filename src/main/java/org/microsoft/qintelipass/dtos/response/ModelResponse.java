@@ -1,16 +1,20 @@
 package org.microsoft.qintelipass.dtos.response;
 
-import org.microsoft.qintelipass.entity.AiModelConfig;
+import org.microsoft.qintelipass.entity.Models;
+
+import java.time.LocalDateTime;
 
 public record ModelResponse(
-        String modelKey,
-        String displayName,
+        Long modelId,
+        String modelName,
+        LocalDateTime createAt,
         String provider
 ) {
-    public static ModelResponse from(AiModelConfig modelConfig) {
+    public static ModelResponse from(Models modelConfig) {
         return new ModelResponse(
-                modelConfig.getModelKey(),
-                modelConfig.getDisplayName(),
+                modelConfig.getId(),
+                modelConfig.getModelName(),
+                modelConfig.getCreateAt(),
                 modelConfig.getProvider()
         );
     }

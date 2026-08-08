@@ -15,6 +15,13 @@ public class ChatRequestDTO {
     /** Model key (must exist in ai_model_configs table). Optional — uses conversation default or system default. */
     private String modelKey;
 
+    /**
+     * Optional conversation id to append the turn to. When omitted, a new
+     * conversation is created and its id is returned (sync) / exposed via the
+     * {@code X-Conversation-Id} response header (stream).
+     */
+    private Long conversationId;
+
     /** The current user message text. */
     @NotBlank(message = "message must not be blank")
     @Size(max = 20_000, message = "message too long")

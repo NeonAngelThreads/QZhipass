@@ -5,9 +5,13 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.microsoft.qintelipass.entity.Models;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
+import org.springframework.util.StringUtils;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -43,6 +47,16 @@ public class DeepSeekApiClient {
                 .build();
     }
 
+    /**
+     * Convenience constructor that sources {@code baseUrl} and {@code apiKey}
+     * from a {@link Models} table row.
+     *
+     * @param model the model configuration row carrying apiBase and apiKey
+     */
+    public DeepSeekApiClient(Models model) {
+        this(model.getApiBase(), model.getApiKey());
+    }
+
     // ---------- Chat Completions ----------
 
     /**
@@ -70,7 +84,10 @@ public class DeepSeekApiClient {
     }
 
     /**
-     * Streaming chat completion — returns raw SSE lines as Flux.
+     * Streaming chat completion — returns the {@code data} payload of each SSE
+     * event as a {@link Flux} of JSON strings (the {@code data: } prefix is
+     * stripped by the SSE decoder). The terminal {@code [DONE]} sentinel is
+     * kept and must be handled by the caller.
      */
     public Flux<String> chatCompletionStream(ChatCompletionRequest request) {
         try {
@@ -83,7 +100,9 @@ public class DeepSeekApiClient {
                     .accept(MediaType.TEXT_EVENT_STREAM)
                     .bodyValue(body)
                     .retrieve()
-                    .bodyToFlux(String.class)
+                    .bodyToFlux(new ParameterizedTypeReference<ServerSentEvent<String>>() {})
+                    .map(ServerSentEvent::data)
+                    .filter(StringUtils::hasText)
                     .doOnNext(chunk -> log.trace("SSE chunk: {}", chunk));
         } catch (JsonProcessingException e) {
             return Flux.error(e);

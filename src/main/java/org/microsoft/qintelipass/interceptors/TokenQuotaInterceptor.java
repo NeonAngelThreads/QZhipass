@@ -4,6 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.microsoft.qintelipass.ai.token.UserTokenStatus;
+import org.microsoft.qintelipass.dtos.UserTokenUsageDTO;
+import org.microsoft.qintelipass.entity.User;
+import org.microsoft.qintelipass.exceptions.UserNotFoundException;
+import org.microsoft.qintelipass.repository.UserRepository;
 import org.microsoft.qintelipass.services.TokenUsageService;
 import org.microsoft.qintelipass.util.security.SecurityUtil;
 import org.springframework.stereotype.Component;
@@ -21,10 +25,12 @@ import java.util.Map;
 public class TokenQuotaInterceptor implements HandlerInterceptor {
 
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private final UserRepository userRepository;
 
     private final TokenUsageService tokenService;
 
-    public TokenQuotaInterceptor(TokenUsageService tokenService) {
+    public TokenQuotaInterceptor(UserRepository userRepository, TokenUsageService tokenService) {
+        this.userRepository = userRepository;
         this.tokenService = tokenService;
     }
 
@@ -45,9 +51,9 @@ public class TokenQuotaInterceptor implements HandlerInterceptor {
             // 用户身份由现有认证/业务层继续处理。
             return true;
         }
-
-        UserTokenStatus status = tokenService.getDailyStatus(userId);
-        if (!status.overQuota()) {
+        User user = userRepository.findById(userId).orElseThrow(() -> new UserNotFoundException(""));
+        UserTokenUsageDTO status = tokenService.getUserTokenUsage(user);
+        if (!status.isExceeded()) {
             return true;
         }
 
@@ -57,10 +63,10 @@ public class TokenQuotaInterceptor implements HandlerInterceptor {
                 "success", false,
                 "code", "TOKEN_QUOTA_EXCEEDED",
                 "message", "今日 Token 配额已用完（已用 "
-                        + status.used()
+                        + status.getTokenUsed()
                         + " / 限额 "
-                        + status.quota()
-                        + "），请明天再试或联系管理员调整配额"
+                        + status.getTokenLimit()
+                        + "）"
         );
         response.getWriter().write(OBJECT_MAPPER.writeValueAsString(body));
         return false;
@@ -79,7 +85,6 @@ public class TokenQuotaInterceptor implements HandlerInterceptor {
                 || path.equals("/v1/chat/usage")
                 || path.equals("/api/v1/chat/usage");
     }
-
     private Long extractUserId(HttpServletRequest request) {
         var authUser = SecurityUtil.getCurrentAuthenticatedUser();
         if (authUser != null) {
@@ -87,7 +92,6 @@ public class TokenQuotaInterceptor implements HandlerInterceptor {
         }
         return parseUserId(request.getParameter("userId"));
     }
-
     private Long parseUserId(String value) {
         if (value == null || value.isBlank()) {
             return null;

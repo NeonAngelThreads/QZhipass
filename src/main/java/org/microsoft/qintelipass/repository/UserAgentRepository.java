@@ -20,7 +20,7 @@ public interface UserAgentRepository extends JpaRepository<UserAgent, Long> {
     long countByUserIdAndStatus(Long userId, String status);
 
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("delete from UserAgent agent where agent.id = :agentId and agent.userId = :userId")
+    @Query("delete from UserAgent agent where agent.id = :agentId and agent.user.id = :userId")
     int hardDeleteByIdAndUserId(@Param("agentId") Long agentId, @Param("userId") Long userId);
 
     List<UserAgent> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, String statusActive);

@@ -25,14 +25,12 @@ import java.util.List;
 public class AgentController {
     private static final int STREAM_CHUNK_CODE_POINTS = 48;
     private final AgentService agentService;
-    private final SecurityUtil currentUserService;
     @Autowired
     public AgentController(
-            AgentService agentService,
-            SecurityUtil currentUserService
+            AgentService agentService
     ) {
         this.agentService = agentService;
-        this.currentUserService = currentUserService;
+
     }
     @PostMapping
     public ResponseEntity<ApiResponse<AgentResponse>> createAgent(

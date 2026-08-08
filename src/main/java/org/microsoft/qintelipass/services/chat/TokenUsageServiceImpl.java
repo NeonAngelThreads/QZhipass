@@ -2,9 +2,7 @@ package org.microsoft.qintelipass.services.chat;
 
 import jakarta.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
-import org.microsoft.qintelipass.ai.token.DashboardData;
 import org.microsoft.qintelipass.ai.token.DepartmentUsageData;
-import org.microsoft.qintelipass.ai.token.UserTokenStatus;
 import org.microsoft.qintelipass.dtos.TokenUsageRankDTO;
 import org.microsoft.qintelipass.dtos.UserTokenUsageDTO;
 import org.microsoft.qintelipass.entity.*;
@@ -34,6 +32,7 @@ public class TokenUsageServiceImpl implements TokenUsageService {
     private static final String LIMIT_KEY_PREFIX = "user:token:limit:";
     private static final String TOTAL_TOKENS_KEY = "models:daily:total:tokens";
     private static final String MODEL_TOTAL_KEY_PREFIX = "models:daily:total:";
+    private static final String MODEL_NAME_KEY_PREFIX = "models:name:";
 
     private static final String GLOBAL_QUOTA_KEY = "global_token_quota";
     private static final String USER_QUOTA_KEY_PREFIX = "user_quota_";
@@ -77,10 +76,6 @@ public class TokenUsageServiceImpl implements TokenUsageService {
             ));
         }
     }
-
-    // ======================================================================
-    // 原有接口（我的版本）
-    // ======================================================================
 
     @Override
     @Transactional
@@ -226,11 +221,6 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         Long userId = user.getId();
         String limitKey = LIMIT_KEY_PREFIX + userId;
         redisTemplate.opsForValue().set(limitKey, String.valueOf(limit));
-
-        globalConfigRepository.save(new GlobalConfig(
-                USER_QUOTA_KEY_PREFIX + userId,
-                String.valueOf(limit)
-        ));
 
         Optional<DailyConfig> existingConfig = dailyConfigRepository.findByUser_Id(userId);
         if (existingConfig.isPresent()) {
@@ -472,14 +462,6 @@ public class TokenUsageServiceImpl implements TokenUsageService {
             return getGlobalQuota();
         }
 
-        Optional<GlobalConfig> gc = globalConfigRepository.findById(USER_QUOTA_KEY_PREFIX + userId);
-        if (gc.isPresent()) {
-            try {
-                return Long.parseLong(gc.get().getValue());
-            } catch (NumberFormatException ignored) {
-            }
-        }
-
         String cacheLimit = redisTemplate.opsForValue().get(LIMIT_KEY_PREFIX + userId);
         if (cacheLimit != null) {
             try {
@@ -503,11 +485,6 @@ public class TokenUsageServiceImpl implements TokenUsageService {
                 GLOBAL_QUOTA_KEY,
                 String.valueOf(quota)
         ));
-    }
-
-    @Override
-    public void setGlobalQuotaWithCount(long quota) {
-        setGlobalQuota(quota);
     }
 
     @Override
@@ -540,135 +517,6 @@ public class TokenUsageServiceImpl implements TokenUsageService {
                 dailyConfigRepository.save(config);
             }
         }
-    }
-
-    // ======================================================================
-    // 兼容对方版本：用量记录
-    // ======================================================================
-
-    @Override
-    @Transactional
-    public void recordUsage(Long userId, String model, long promptTokens, long completionTokens) {
-        if (userId == null) {
-            throw new IllegalArgumentException("User id is required");
-        }
-        if (model == null || model.isBlank()) {
-            throw new IllegalArgumentException("Model is required");
-        }
-        if (promptTokens < 0 || completionTokens < 0) {
-            throw new IllegalArgumentException("Token usage must not be negative");
-        }
-
-        long totalTokens = promptTokens + completionTokens;
-        LocalDate today = LocalDate.now();
-        String todayStr = getTodayDateString();
-        String usageKey = getUsageKey(todayStr, userId);
-        String rankKey = getRankKey(todayStr);
-        Long currentUsage = redisTemplate.opsForValue().increment(usageKey, totalTokens);
-        if (currentUsage != null && currentUsage == totalTokens) {
-            redisTemplate.expireAt(usageKey, ExpirationTimeHelper.getNextDayTime());
-        }
-        redisTemplate.opsForZSet().incrementScore(rankKey, String.valueOf(userId), totalTokens);
-        redisTemplate.opsForValue().increment(TOTAL_TOKENS_KEY, totalTokens);
-        redisTemplate.expireAt(TOTAL_TOKENS_KEY, ExpirationTimeHelper.getNextDayTime());
-
-        Optional<Models> modelEntity = modelsRepository.findByModelName(model);
-        User user = userRepository.findById(userId).orElse(null);
-        if (modelEntity.isPresent() && user != null && totalTokens > 0) {
-            TokenUsageLog logEntry = TokenUsageLog.builder()
-                    .id(Snowflake.nextId())
-                    .user(user)
-                    .model(modelEntity.get())
-                    .tokensUsed((int) Math.min(totalTokens, Integer.MAX_VALUE))
-                    .usageDate(today)
-                    .build();
-            tokenUsageLogRepository.save(logEntry);
-        }
-    }
-
-    // ======================================================================
-    // 兼容对方版本：状态查询
-    // ======================================================================
-
-    @Override
-    public UserTokenStatus getDailyStatus(Long userId) {
-        if (userId == null) {
-            throw new IllegalArgumentException("User id is required");
-        }
-
-        long quota = getUserQuota(userId);
-        long used = sumTokensForUserOnDate(userId, LocalDate.now());
-
-        User user = userRepository.findById(userId).orElse(null);
-        String department = user == null ? null : user.getDepartment();
-        String userName = user == null ? null : user.getName();
-
-        return new UserTokenStatus(
-                userId,
-                quota,
-                used,
-                Math.max(0, quota - used),
-                used >= quota,
-                department,
-                userName
-        );
-    }
-
-    @Override
-    public boolean checkQuota(Long userId, long estimatedTokens) {
-        if (estimatedTokens < 0) {
-            throw new IllegalArgumentException("Estimated tokens must not be negative");
-        }
-        UserTokenStatus status = getDailyStatus(userId);
-        return status.used() + estimatedTokens <= status.quota();
-    }
-
-    // ======================================================================
-    // 兼容对方版本：看板和统计
-    // ======================================================================
-
-    @Override
-    public DashboardData getDashboard() {
-        long quota = getGlobalQuota();
-        LocalDate today = LocalDate.now();
-
-        Map<Long, Long> todayUsageByUser = sumUsageByUserFromLogs(
-                tokenUsageLogRepository.findByUsageDate(today)
-        );
-        long overQuotaUsers = todayUsageByUser.entrySet().stream()
-                .filter(entry -> entry.getValue() >= getUserQuota(entry.getKey()))
-                .count();
-
-        LocalDate start = today.minusDays(6);
-        List<String> dates = new ArrayList<>();
-        for (int daysAgo = 6; daysAgo >= 0; daysAgo--) {
-            dates.add(today.minusDays(daysAgo).toString());
-        }
-
-        Map<String, List<Long>> models = new LinkedHashMap<>();
-        List<Long> totals = new ArrayList<>(Collections.nCopies(7, 0L));
-        for (TokenUsageLogRepository.ModelDailyTotal dailyTotal
-                : tokenUsageLogRepository.findDailyTotalsSince(start)) {
-            List<Long> modelTotals = models.computeIfAbsent(
-                    dailyTotal.getModel(),
-                    ignored -> new ArrayList<>(Collections.nCopies(7, 0L))
-            );
-            int index = (int) ChronoUnit.DAYS.between(start, dailyTotal.getUsageDate());
-            if (index >= 0 && index < 7) {
-                long value = dailyTotal.getTotal() == null ? 0L : dailyTotal.getTotal();
-                modelTotals.set(index, value);
-                totals.set(index, totals.get(index) + value);
-            }
-        }
-
-        return new DashboardData(
-                todayUsageByUser.size(),
-                overQuotaUsers,
-                quota,
-                dates,
-                models,
-                totals
-        );
     }
 
     @Override
@@ -828,19 +676,11 @@ public class TokenUsageServiceImpl implements TokenUsageService {
         return tokenUsageLogRepository.findByUser_IdAndUsageDateBetween(userId, start, end);
     }
 
-    // ======================================================================
-    // 定时清理
-    // ======================================================================
-
     @Scheduled(cron = "0 0 0 * * *")
     @Transactional
     public void dailyReset() {
         tokenUsageLogRepository.deleteByUsageDateBefore(LocalDate.now().minusDays(30));
     }
-
-    // ======================================================================
-    // 私有方法
-    // ======================================================================
 
     private long getCurrentTokenUsage(Long userId) {
         String today = getTodayDateString();
@@ -884,9 +724,20 @@ public class TokenUsageServiceImpl implements TokenUsageService {
     }
 
     private String getModelName(Long modelId) {
-        return modelsRepository.findById(modelId)
-                .map(Models::getModelName)
-                .orElse("Model-" + modelId);
+        String cacheKey = MODEL_NAME_KEY_PREFIX + modelId;
+        String cachedName = redisTemplate.opsForValue().get(cacheKey);
+        if (cachedName != null) {
+            return cachedName;
+        }
+        // 缓存不存在，走数据库查询并更新 Redis
+        Optional<Models> modelOpt = modelsRepository.findById(modelId);
+        if (modelOpt.isPresent()) {
+            String modelName = modelOpt.get().getModelName();
+            redisTemplate.opsForValue().set(cacheKey, modelName);
+            redisTemplate.expireAt(cacheKey, ExpirationTimeHelper.getNextDayTime());
+            return modelName;
+        }
+        return "Model-" + modelId;
     }
 
     private Map<Long, Long> sumUsageByUserFromLogs(List<TokenUsageLog> logs) {

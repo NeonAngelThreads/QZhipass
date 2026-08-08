@@ -1,8 +1,8 @@
 package org.microsoft.qintelipass.services.chat;
 
 import org.microsoft.qintelipass.exceptions.BadRequestException;
-import org.microsoft.qintelipass.repository.AiModelConfigRepository;
 import org.microsoft.qintelipass.dtos.response.ModelResponse;
+import org.microsoft.qintelipass.repository.ModelsRepository;
 import org.microsoft.qintelipass.services.ModelService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,9 +14,9 @@ import java.util.Optional;
 @Service
 // 统一处理模型列表查询和 modelKey 可用性校验。
 public class AiModelService implements ModelService {
-    private final AiModelConfigRepository modelConfigRepository;
+    private final ModelsRepository modelConfigRepository;
 
-    public AiModelService(AiModelConfigRepository modelConfigRepository) {
+    public AiModelService(ModelsRepository modelConfigRepository) {
         this.modelConfigRepository = modelConfigRepository;
     }
     @Override
@@ -27,7 +27,7 @@ public class AiModelService implements ModelService {
     @Transactional(readOnly = true)
     // 返回当前可用模型；预留 userId 便于后续接入按用户授权的模型范围。
     public List<ModelResponse> listAvailableModels(Long userId) {
-        return modelConfigRepository.findByEnabledTrueOrderBySortOrderAscDisplayNameAsc()
+        return modelConfigRepository.findByEnabledTrueOrderBySortOrderAscModelNameAsc()
                 .stream()
                 .map(ModelResponse::from)
                 .toList();
@@ -40,7 +40,7 @@ public class AiModelService implements ModelService {
             return null;
         }
         String normalized = modelKey.trim();
-        if (!modelConfigRepository.existsByModelKeyAndEnabledTrue(normalized)) {
+        if (!modelConfigRepository.existsByModelNameAndEnabledTrue(normalized)) {
             throw new BadRequestException("Model is not available: " + normalized);
         }
         return normalized;
@@ -61,7 +61,7 @@ public class AiModelService implements ModelService {
         if (!StringUtils.hasText(modelKey)) {
             return Optional.empty();
         }
-        return modelConfigRepository.findByModelKeyAndEnabledTrue(modelKey.trim())
+        return modelConfigRepository.findByModelNameAndEnabledTrue(modelKey.trim())
                 .map(ModelResponse::from);
     }
 }

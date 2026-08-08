@@ -1,5 +1,6 @@
 package org.microsoft.qintelipass.configs;
 
+import org.microsoft.qintelipass.enums.UserRole;
 import org.microsoft.qintelipass.services.user.UserDetailsServiceImpl;
 import org.microsoft.qintelipass.util.security.JwtAuthenticationFilter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,8 +57,7 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/v1/auth/portal/**", "/h2-console/**").permitAll()
-                        .requestMatchers("/api/v1/admin/**", "/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/auth/portal/**").permitAll()
                         .anyRequest().permitAll()
                 )
                 .sessionManagement(session -> session

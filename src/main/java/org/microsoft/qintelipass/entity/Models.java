@@ -9,7 +9,13 @@ import java.time.LocalDateTime;
 
 @Data
 @Entity
-@Table(name = "models")
+@Table(name = "models",
+        uniqueConstraints = @UniqueConstraint(name = "uk_ai_model_configs_model_key", columnNames = "model_name"),
+        indexes = {
+                @Index(name = "idx_ai_model_configs_enabled_sort", columnList = "enabled,sort_order"),
+                @Index(name = "idx_ai_model_configs_provider", columnList = "provider")
+        }
+)
 public class Models {
     @Id
     @Column(name = "model_id", unique = true, nullable = false)

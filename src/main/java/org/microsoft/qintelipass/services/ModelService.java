@@ -1,9 +1,10 @@
 package org.microsoft.qintelipass.services;
 
-import org.microsoft.qintelipass.entity.AiModelConfig;
+
+import org.microsoft.qintelipass.entity.Models;
 
 import java.util.Optional;
 
 public interface ModelService {
-    Optional<AiModelConfig> findModelById(Long id);
+    Optional<Models> findModelById(Long id);
 }
